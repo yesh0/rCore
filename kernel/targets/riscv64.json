@@ -13,10 +13,12 @@
   "linker-flavor": "ld.lld",
   "pre-link-args": {
     "ld.lld": [
-      "-Tsrc/arch/riscv/boot/linker64.ld"
+      "-Tsrc/arch/riscv/boot/linker64.ld",
+      "-export-dynamic"
     ]
   },
   "executables": true,
+  "dynamic-linking": true,
   "panic-strategy": "abort",
   "relocation-model": "static",
   "abi-blacklist": [

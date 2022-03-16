@@ -1,0 +1,2 @@
+[build]
+rustflags = ["-Zsymbol-mangling-version=v0"]

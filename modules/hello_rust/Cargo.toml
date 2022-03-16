@@ -7,3 +7,6 @@ build = "build.rs"
 
 [dependencies]
 log = "0.4"
+
+# [lib]
+# crate-type = ["cdylib"]

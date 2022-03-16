@@ -9,16 +9,21 @@ elif [[ "$1" == "aarch64" ]]; then
     TEXT_TYPE=elf64-littleaarch64
     BIN_ARCH=aarch64
     PREFIX=aarch64-elf-
+elif [[ "$1" == "riscv64" ]]; then
+    ARCH=riscv64
+    TEXT_TYPE=elf64-littleriscv
+    PREFIX=riscv64-unknown-elf-
 else
     echo "Not supported target"
     exit 1
 fi
 
+# NOTE: "cargo install cargo-xbuild" if you meet "no such subcommand: `xbuild`" 
 echo "Step 1. Fetching dependencies according to cargo."
 echo "// Dummy file" > src/lib.rs
 echo '#![no_std]' >> src/lib.rs
 echo "extern crate rcore;" >> src/lib.rs
-cargo xbuild --target=../../kernel/targets/$ARCH.json -vv --release
+cargo xbuild --target=../../kernel/targets/$ARCH.json -v --release
 echo "Step 2. Compile the library"
 echo '#![no_std]' > src/lib.rs
 echo '#![feature(alloc)]' >> src/lib.rs
