@@ -76,7 +76,17 @@ pub mod arch;
 #[path = "arch/aarch64/mod.rs"]
 pub mod arch;
 
+mod kprobes;
+use kprobes::register_kprobe;
+use alloc::sync::Arc;
+use trapframe::TrapFrame;
+
+fn some_handler(_ctx: &mut TrapFrame) {
+    println!("hello from some handler");
+}
+
 pub fn kmain() -> ! {
+    register_kprobe(some_handler as usize, Arc::new(some_handler));
     loop {
         executor::run_until_idle();
         arch::interrupt::wait_for_interrupt();
