@@ -343,7 +343,7 @@ else ifeq ($(ARCH), mipsel)
 	$(hostcc) -Dboard_$(BOARD) -E src/arch/$(ARCH)/boot/linker.ld.S -o src/arch/$(ARCH)/boot/linker.ld
 endif
 	@cargo build $(build_args)
-
+	../tools/fill_symbols/fill.sh $(kernel) $(prefix)
 
 ### user programs ###
 sfsimg:

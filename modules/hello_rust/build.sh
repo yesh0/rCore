@@ -26,7 +26,6 @@ echo "extern crate rcore;" >> src/lib.rs
 cargo xbuild --target=../../kernel/targets/$ARCH.json -v --release
 echo "Step 2. Compile the library"
 echo '#![no_std]' > src/lib.rs
-echo '#![feature(alloc)]' >> src/lib.rs
 echo "extern crate rcore;" >> src/lib.rs
 echo "mod main;" >> src/lib.rs
 rustc --edition=2018 --crate-name hello_rust src/lib.rs \
@@ -35,7 +34,7 @@ rustc --edition=2018 --crate-name hello_rust src/lib.rs \
 --target ../../kernel/targets/$ARCH.json \
 -L dependency=target/$ARCH/release/deps \
 -L dependency=target/release/deps \
---emit=obj --sysroot target/sysroot \
+--emit=obj \
 -L all=../../kernel/target/$ARCH/release/deps \
 -L all=../../kernel/target/release/deps
 echo "Step 3. Packing the library into kernel module."
