@@ -168,7 +168,7 @@ impl<T: ?Sized, S: MutexSupport> Mutex<T, S> {
         {
             // Wait for another thread to initialize
             while self.support_initialization.load(Ordering::Acquire) == 1 {
-                core::sync::atomic::spin_loop_hint();
+                core::hint::spin_loop();
             }
         } else {
             // My turn to initialize
@@ -266,7 +266,7 @@ impl MutexSupport for Spin {
         Spin
     }
     fn cpu_relax(&self) {
-        core::sync::atomic::spin_loop_hint();
+        core::hint::spin_loop();
     }
     fn before_lock() -> Self::GuardData {}
     fn after_unlock(&self) {}
@@ -297,7 +297,7 @@ impl MutexSupport for SpinNoIrq {
         SpinNoIrq
     }
     fn cpu_relax(&self) {
-        core::sync::atomic::spin_loop_hint();
+        core::hint::spin_loop();
     }
     fn before_lock() -> Self::GuardData {
         FlagsGuard(unsafe { interrupt::disable_and_store() })

@@ -616,15 +616,15 @@ impl Future for PageTableSwitchWrapper {
         // set cpu local thread
         // TODO: task local?
         let cpu_id = cpu::id();
-        unsafe {
-            PROCESSORS[cpu_id] = Some(self.thread.clone());
-        }
+        // unsafe {
+            PROCESSORS.lock()[cpu_id] = Some(self.thread.clone());
+        // }
         // vmtoken won't change
         set_page_table(self.vmtoken);
         let res = self.inner.lock().as_mut().poll(cx);
-        unsafe {
-            PROCESSORS[cpu_id] = None;
-        }
+        // unsafe {
+            PROCESSORS.lock()[cpu_id] = None;
+        // }
         res
     }
 }

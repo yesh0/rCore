@@ -1,5 +1,6 @@
 //! Provide backtrace upon panic
 use core::mem::size_of;
+use core::arch::asm;
 
 extern "C" {
     fn stext();
@@ -16,7 +17,7 @@ pub fn fp() -> usize {
     }
     #[cfg(riscv)]
     unsafe {
-        llvm_asm!("mv $0, s0" : "=r"(ptr));
+        asm!("mv {0}, s0", out(reg) ptr);
     }
     #[cfg(target_arch = "x86_64")]
     unsafe {
@@ -41,7 +42,7 @@ pub fn lr() -> usize {
     }
     #[cfg(riscv)]
     unsafe {
-        llvm_asm!("mv $0, ra" : "=r"(ptr));
+        asm!("mv {0}, ra", out(reg) ptr);
     }
     #[cfg(target_arch = "x86_64")]
     unsafe {

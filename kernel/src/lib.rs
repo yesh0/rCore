@@ -1,14 +1,10 @@
 #![feature(lang_items)]
 #![feature(naked_functions)]
 #![feature(untagged_unions)]
-#![feature(llvm_asm)]
-#![feature(optin_builtin_traits)]
+#![feature(auto_traits)]
 #![feature(panic_info_message)]
-#![feature(global_asm)]
 #![feature(negative_impls)]
-#![feature(alloc_prelude)]
-#![feature(const_fn)]
-#![feature(const_in_array_repeat_expressions)]
+#![feature(const_fn_trait_bound)]
 #![deny(unused_must_use)]
 #![deny(stable_features)]
 #![deny(unused_unsafe)]
@@ -89,5 +85,5 @@ pub fn kmain() -> ! {
 ///
 /// It should be defined in memory mod, but in Rust `global_allocator` must be in root mod.
 #[global_allocator]
-static HEAP_ALLOCATOR: LockedHeapWithRescue =
+static HEAP_ALLOCATOR: LockedHeapWithRescue<32> =
     LockedHeapWithRescue::new(crate::memory::enlarge_heap);

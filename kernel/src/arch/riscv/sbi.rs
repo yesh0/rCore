@@ -1,5 +1,6 @@
 //! Port from sbi.h
 #![allow(dead_code)]
+use core::arch::asm;
 
 #[derive(Clone, Copy, Debug)]
 pub struct SBIRet {
@@ -16,11 +17,13 @@ fn sbi_call(which: SBICall, arg0: usize, arg1: usize, arg2: usize) -> SBIRet {
     let ret1;
     let ret2;
     unsafe {
-        llvm_asm!("ecall"
-            : "={x10}" (ret1), "={x11}"(ret2)
-            : "{x10}" (arg0), "{x11}" (arg1), "{x12}" (arg2), "{x17}" (which.eid), "{x16}" (which.fid)
-            : "memory"
-            : "volatile");
+        asm!("ecall",
+            inlateout("x10") arg0 => ret1,
+            inlateout("x11") arg1 => ret2,
+            in("x12") arg2,
+            in("x17") which.eid,
+            in("x16") which.fid,
+        );
     }
     SBIRet {
         error: ret1,
@@ -108,11 +111,12 @@ const SBI_FID_TIME_SET: usize = 0;
 fn sbi_call_legacy(which: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
     let ret;
     unsafe {
-        llvm_asm!("ecall"
-            : "={x10}" (ret)
-            : "{x10}" (arg0), "{x11}" (arg1), "{x12}" (arg2), "{x17}" (which)
-            : "memory"
-            : "volatile");
+        asm!("ecall",
+            inlateout("x10") arg0 => ret,
+            in("x11") arg1,
+            in("x12") arg2,
+            in("x17") which,
+        );
     }
     ret
 }

@@ -23,7 +23,7 @@ use xmas_elf::symbol_table::DynEntry64;
 use xmas_elf::symbol_table::Entry;
 use xmas_elf::{header, ElfFile};
 // The symbol data table.
-global_asm!(include_str!("symbol_table.asm"));
+core::arch::global_asm!(include_str!("symbol_table.asm"));
 
 /// Module Manager is the core part of LKM.
 /// It does these jobs: Load preset(API) symbols; manage module loading dependency and linking modules.

@@ -105,6 +105,6 @@ const BOOT_HART_ID: usize = 0;
 const BOOT_HART_ID: usize = 1;
 
 #[cfg(target_arch = "riscv32")]
-global_asm!(include_str!("boot/entry32.asm"));
+core::arch::global_asm!(include_str!("boot/entry32.asm"));
 #[cfg(target_arch = "riscv64")]
-global_asm!(include_str!("boot/entry64.asm"));
+core::arch::global_asm!(include_str!("boot/entry64.asm"));

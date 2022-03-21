@@ -164,7 +164,7 @@ pub fn init_heap() {
     }
 }
 
-pub fn enlarge_heap(heap: &mut Heap) {
+pub fn enlarge_heap(heap: &mut Heap<32>, _layout: &core::alloc::Layout) {
     info!("Enlarging heap to avoid oom");
 
     let mut addrs = [(0, 0); 32];
@@ -197,7 +197,7 @@ pub fn access_ok(addr: usize, len: usize) -> bool {
     addr < PHYSICAL_MEMORY_OFFSET && (addr + len) < PHYSICAL_MEMORY_OFFSET
 }
 
-#[naked]
+// #[naked]
 pub unsafe extern "C" fn read_user_fixup() -> usize {
     return 1;
 }

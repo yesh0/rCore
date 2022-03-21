@@ -114,7 +114,7 @@ impl INode for TtyINode {
         #[must_use = "future does nothing unless polled/`await`-ed"]
         struct SerialFuture<'a> {
             tty: &'a TtyINode,
-        };
+        }
 
         impl<'a> Future for SerialFuture<'a> {
             type Output = Result<PollStatus>;
