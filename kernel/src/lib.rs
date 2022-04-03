@@ -82,11 +82,20 @@ use alloc::sync::Arc;
 use trapframe::TrapFrame;
 
 fn some_handler(_ctx: &mut TrapFrame) {
-    println!("hello from some handler");
+    warn!("hello from some handler");
+}
+
+#[inline(never)]
+fn foo() {
+    error!("foo");
 }
 
 pub fn kmain() -> ! {
-    register_kprobe(some_handler as usize, Arc::new(some_handler));
+    // register_kprobe(foo as usize, Arc::new(some_handler));
+    // foo();
+
+    kprobes::kprobes::run_kprobes_tests();
+
     loop {
         executor::run_until_idle();
         arch::interrupt::wait_for_interrupt();

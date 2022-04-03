@@ -514,6 +514,7 @@ dependencies = [
  "rcore-fs-sfs",
  "rcore-memory",
  "riscv",
+ "riscv-decode",
  "rlibc",
  "rvm",
  "smoltcp",
@@ -641,6 +642,11 @@ dependencies = [
  "log",
  "riscv-target",
 ]
+
+[[package]]
+name = "riscv-decode"
+version = "0.2.0"
+source = "git+https://github.com/latte-c/riscv-decode?rev=6d239b7#6d239b7689ddd5a3db4dd640261b4eb90725c127"
 
 [[package]]
 name = "riscv-target"
