@@ -91,7 +91,7 @@ fn foo() {
 }
 
 pub fn kmain() -> ! {
-    // register_kprobe(foo as usize, Arc::new(some_handler));
+    // register_kprobe(foo as usize, Arc::new(some_handler), None);
     // foo();
 
     kprobes::kprobes::run_kprobes_tests();

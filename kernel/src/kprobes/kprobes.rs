@@ -46,11 +46,11 @@ lazy_static! {
 }
 
 impl KProbe {
-    pub fn new(addr: usize, pre_handler: Arc<Handler>, emulate: bool) -> Self {
+    pub fn new(addr: usize, pre_handler: Arc<Handler>, post_handler: Option<Arc<Handler>>, emulate: bool) -> Self {
         Self {
             addr, 
             pre_handler,
-            post_handler: None,
+            post_handler,
             insn_buf: InstructionBuffer::new(),
             insn_len: get_insn_length(addr),
             active_count: 0,
@@ -111,7 +111,7 @@ pub fn kprobe_trap_handler(tf: &mut TrapFrame) -> bool {
     false
 }
 
-pub fn register_kprobe(addr: usize, handler: Arc<Handler>) -> bool {
+pub fn register_kprobe(addr: usize, pre_handler: Arc<Handler>, post_handler: Option<Arc<Handler>>) -> bool {
     let mut map = KPROBES.lock();
     if map.contains_key(&addr) {
         error!("kprobe for address {:#x} already exist", addr);
@@ -125,7 +125,7 @@ pub fn register_kprobe(addr: usize, handler: Arc<Handler>) -> bool {
     }
     
     let emulate = insn_type == SingleStepType::Emulate;
-    let probe = KProbe::new(addr, handler, emulate);
+    let probe = KProbe::new(addr, pre_handler, post_handler, emulate);
     let next_bp_addr = probe.insn_buf.addr() + probe.insn_len;
     probe.arm();
     
@@ -173,7 +173,7 @@ pub fn run_kprobes_tests() {
         let probes = from_raw_parts(kprobes_test_probe_points as *const usize, nr_tests);
 
         for (i, &f) in test_fns.iter().enumerate() {
-            register_kprobe(probes[i], Arc::new(test_pre_handler));
+            register_kprobe(probes[i], Arc::new(test_pre_handler), None);
             f(0);
         }
     }
