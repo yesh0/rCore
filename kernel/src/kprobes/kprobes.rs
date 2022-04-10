@@ -1,16 +1,12 @@
-use lazy_static::*;
+use crate::sync::SpinLock as Mutex;
 use alloc::collections::btree_map::BTreeMap;
 use alloc::sync::Arc;
-use trapframe::TrapFrame;
-use core::slice::from_raw_parts;
 use core::ops::Fn;
-use crate::sync::SpinLock as Mutex;
+use core::slice::from_raw_parts;
+use lazy_static::*;
+use trapframe::TrapFrame;
 
-#[cfg(riscv)]
-#[path = "arch/riscv/mod.rs"]
-mod arch;
-
-use arch::*;
+use super::arch::*;
 
 pub type Handler = dyn Fn(&mut TrapFrame) + Sync + Send;
 
@@ -22,15 +18,6 @@ struct KProbe {
     insn_len: usize,
     active_count: usize,
     emulate: bool,
-}
-
-struct KRetProbe {
-    // handler information
-    // number of current instances
-}
-
-struct KRetProbeInstance {
-    // return address
 }
 
 #[derive(PartialEq)]
@@ -46,9 +33,14 @@ lazy_static! {
 }
 
 impl KProbe {
-    pub fn new(addr: usize, pre_handler: Arc<Handler>, post_handler: Option<Arc<Handler>>, emulate: bool) -> Self {
+    pub fn new(
+        addr: usize,
+        pre_handler: Arc<Handler>,
+        post_handler: Option<Arc<Handler>>,
+        emulate: bool,
+    ) -> Self {
         Self {
-            addr, 
+            addr,
             pre_handler,
             post_handler,
             insn_buf: InstructionBuffer::new(),
@@ -111,7 +103,11 @@ pub fn kprobe_trap_handler(tf: &mut TrapFrame) -> bool {
     false
 }
 
-pub fn register_kprobe(addr: usize, pre_handler: Arc<Handler>, post_handler: Option<Arc<Handler>>) -> bool {
+pub fn register_kprobe(
+    addr: usize,
+    pre_handler: Arc<Handler>,
+    post_handler: Option<Arc<Handler>>,
+) -> bool {
     let mut map = KPROBES.lock();
     if map.contains_key(&addr) {
         error!("kprobe for address {:#x} already exist", addr);
@@ -123,15 +119,19 @@ pub fn register_kprobe(addr: usize, pre_handler: Arc<Handler>, post_handler: Opt
         error!("target instruction is not supported");
         return false;
     }
-    
+
     let emulate = insn_type == SingleStepType::Emulate;
     let probe = KProbe::new(addr, pre_handler, post_handler, emulate);
     let next_bp_addr = probe.insn_buf.addr() + probe.insn_len;
     probe.arm();
-    
+
     ADDR_MAP.lock().insert(next_bp_addr, addr);
     map.insert(addr, probe);
-    warn!("kprobe for address {:#x} inserted. {} kprobes registered", addr, map.len());
+    warn!(
+        "kprobe for address {:#x} inserted. {} kprobes registered",
+        addr,
+        map.len()
+    );
     true
 }
 
@@ -139,11 +139,14 @@ pub fn unregister_kprobe(addr: usize) -> bool {
     let mut map = KPROBES.lock();
     if let Some(probe) = map.get(&addr) {
         if probe.active_count > 0 {
-            error!("cannot remove kprobe for address {:#x} as it is still active", addr);
+            error!(
+                "cannot remove kprobe for address {:#x} as it is still active",
+                addr
+            );
             false
         } else {
             probe.disarm();
-            let _ = map.remove(&addr);
+            map.remove(&addr).unwrap();
             true
         }
     } else {

@@ -9,6 +9,7 @@
 #![feature(alloc_prelude)]
 #![feature(const_fn)]
 #![feature(const_in_array_repeat_expressions)]
+#![feature(map_first_last)]
 #![deny(unused_must_use)]
 #![deny(stable_features)]
 #![deny(unused_unsafe)]
@@ -94,7 +95,8 @@ pub fn kmain() -> ! {
     // register_kprobe(foo as usize, Arc::new(some_handler), None);
     // foo();
 
-    kprobes::kprobes::run_kprobes_tests();
+    // kprobes::kprobes::run_kprobes_tests();
+    kprobes::kretprobes::run_kretprobes_test();
 
     loop {
         executor::run_until_idle();
