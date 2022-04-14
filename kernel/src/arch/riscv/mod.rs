@@ -66,6 +66,9 @@ pub extern "C" fn rust_main(hartid: usize, device_tree_paddr: usize) -> ! {
     }
     memory::init(device_tree_vaddr);
     timer::init();
+
+    crate::lkm::manager::ModuleManager::init();
+
     // TODO: init driver on u540
     #[cfg(not(any(feature = "board_u540")))]
     board::init(device_tree_vaddr);

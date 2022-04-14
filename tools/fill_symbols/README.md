@@ -3,3 +3,6 @@ The tool will use `nm` to extract symbols from the kernel (a bit like System.map
 To reduce the size required, the symbol table will be compressed using gzip.
 The tool tries to limit its dependencies. Only necessary tools (bash, objdump, nm, gzip, grep, dd, python3) are required to run the script.
 TODO: Why don't we just do the job using a single Python script?
+
+CHANGELOG: remove x86_64.sh & rename aarch64.sh
+toolchain prefix (e.g. riscv64-unknown-elf-) can be passed to the script as the second argument

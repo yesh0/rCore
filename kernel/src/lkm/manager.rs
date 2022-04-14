@@ -319,7 +319,7 @@ impl ModuleManager {
                 state: Ready,
             });
             info!(
-                "[LKM] module load done at {}, now need to do the relocation job.",
+                "[LKM] module load done at {:#x}, now need to do the relocation job.",
                 base
             );
             // We only search two tables for relocation info: the symbols from itself, and the symbols from the global exported symbols.
@@ -425,7 +425,7 @@ impl ModuleManager {
                 // Now everything is done, and the entry can be safely plugged into the vector.
                 self.loaded_modules.push(loaded_minfo);
                 if lkm_entry > 0 {
-                    info!("[LKM] calling init_module at {}", lkm_entry);
+                    info!("[LKM] calling init_module at {:#x}", lkm_entry);
                     unsafe {
                         LKM_MANAGER.force_unlock();
                         let init_module: fn() = transmute(lkm_entry);

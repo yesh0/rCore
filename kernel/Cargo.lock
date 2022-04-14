@@ -513,7 +513,7 @@ dependencies = [
  "rcore-fs-ramfs",
  "rcore-fs-sfs",
  "rcore-memory",
- "riscv",
+ "riscv 0.6.0 (git+https://github.com/rcore-riscv-hypervisor-dev/riscv?rev=d14f1c0)",
  "riscv-decode",
  "rlibc",
  "rvm",
@@ -644,6 +644,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "riscv"
+version = "0.6.0"
+source = "git+https://github.com/rcore-riscv-hypervisor-dev/riscv?rev=d14f1c0#d14f1c0907a5158e4496c2d265f1aaf360be2f5d"
+dependencies = [
+ "bare-metal",
+ "bit_field 0.10.1",
+ "bitflags",
+ "log",
+ "riscv-target",
+]
+
+[[package]]
 name = "riscv-decode"
 version = "0.2.0"
 source = "git+https://github.com/latte-c/riscv-decode?rev=6d239b7#6d239b7689ddd5a3db4dd640261b4eb90725c127"
@@ -697,7 +709,7 @@ dependencies = [
  "log",
  "numeric-enum-macro",
  "raw-cpuid 9.0.0",
- "riscv",
+ "riscv 0.6.0 (git+https://github.com/rcore-riscv-hypervisor-dev/riscv.git?rev=3f5efb1)",
  "rvm_macros",
  "spin",
  "x86 0.36.0",
