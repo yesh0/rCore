@@ -1,4 +1,4 @@
-use crate::consts::PHYSICAL_MEMORY_OFFSET;
+use crate::consts::{PHYSICAL_MEMORY_OFFSET, KSEG2_START};
 use crate::memory::{alloc_frame, dealloc_frame, phys_to_virt};
 use core::mem::ManuallyDrop;
 use log::*;
@@ -153,15 +153,21 @@ impl Entry for PageEntry {
     fn set_mmio(&mut self, _value: u8) {}
 }
 
+#[cfg(target_arch = "riscv32")]
+const TOKEN_MASK: usize = 0x7fffffff;
+#[cfg(target_arch = "riscv64")]
+const TOKEN_MASK: usize = 0x0fffffff_ffffffff;
+
+fn get_kernel_page_table_frame() -> Frame {
+    let token = unsafe { super::memory::SATP };
+    Frame::of_ppn(token & TOKEN_MASK)
+}
+
 impl PageTableImpl {
     /// Unsafely get the current active page table.
     /// Using ManuallyDrop to wrap the page table: this is how `core::mem::forget` is implemented now.
     pub unsafe fn active() -> ManuallyDrop<Self> {
-        #[cfg(target_arch = "riscv32")]
-        let mask = 0x7fffffff;
-        #[cfg(target_arch = "riscv64")]
-        let mask = 0x0fffffff_ffffffff;
-        let frame = Frame::of_ppn(PageTableImpl::active_token() & mask);
+        let frame = Frame::of_ppn(PageTableImpl::active_token() & TOKEN_MASK);
         let table = frame.as_kernel_mut(PHYSICAL_MEMORY_OFFSET as u64);
         ManuallyDrop::new(PageTableImpl {
             page_table: TopLevelPageTable::new(table, PHYSICAL_MEMORY_OFFSET),
@@ -170,9 +176,43 @@ impl PageTableImpl {
         })
     }
     /// The method for getting the kernel page table.
-    /// In riscv kernel page table and user page table are the same table. However you have to do the initialization.
+    /// Returns the *only* global kernel page table.
     pub unsafe fn kernel_table() -> ManuallyDrop<Self> {
-        Self::active()
+        let frame = get_kernel_page_table_frame();
+        let table = frame.as_kernel_mut(PHYSICAL_MEMORY_OFFSET as u64);
+        ManuallyDrop::new(PageTableImpl {
+            page_table: TopLevelPageTable::new(table, PHYSICAL_MEMORY_OFFSET),
+            root_frame: frame,
+            entry: None,
+        })        
+    }
+
+    /// The method for mapping kernel pages during initialization.
+    pub fn map_kernel_initial(&mut self) {
+        info!("mapping kernel linear mapping");
+        let table = unsafe {
+            &mut *(phys_to_virt(self.root_frame.start_address().as_usize()) as *mut RvPageTable)
+        };
+        #[cfg(target_arch = "riscv32")]
+        for i in 256..1024 {
+            let flags =
+                EF::VALID | EF::READABLE | EF::WRITABLE | EF::EXECUTABLE | EF::ACCESSED | EF::DIRTY | EF::GLOBAL;
+            let frame = Frame::of_addr(PhysAddr::new((i << 22) - PHYSICAL_MEMORY_OFFSET));
+            table[i].set(frame, flags);
+        }
+        #[cfg(target_arch = "riscv64")]
+        for i in 509..512 {
+            if i == 510 {
+                // MMIO range 0x60000000 - 0x7FFFFFFF does not work as a large page, dunno why
+                continue;
+            }
+            let flags =
+                EF::VALID | EF::READABLE | EF::WRITABLE | EF::EXECUTABLE | EF::ACCESSED | EF::DIRTY | EF::GLOBAL;
+            let frame = Frame::of_addr(PhysAddr::new_u64(
+                ((0xFFFFFF80_00000000 + (i << 30)) - PHYSICAL_MEMORY_OFFSET) as u64,
+            ));
+            table[i].set(frame, flags);
+        }
     }
 }
 
@@ -192,29 +232,26 @@ impl PageTableExt for PageTableImpl {
     }
 
     fn map_kernel(&mut self) {
-        info!("mapping kernel linear mapping");
+        let kernel_table_frame = get_kernel_page_table_frame();
+        let kernel_table = unsafe {
+            &mut *(phys_to_virt(kernel_table_frame.start_address().as_usize()) as *mut RvPageTable)
+        };
         let table = unsafe {
             &mut *(phys_to_virt(self.root_frame.start_address().as_usize()) as *mut RvPageTable)
         };
+
         #[cfg(target_arch = "riscv32")]
         for i in 256..1024 {
-            let flags =
-                EF::VALID | EF::READABLE | EF::WRITABLE | EF::EXECUTABLE | EF::ACCESSED | EF::DIRTY;
-            let frame = Frame::of_addr(PhysAddr::new((i << 22) - PHYSICAL_MEMORY_OFFSET));
-            table[i].set(frame, flags);
+            table[i].set(kernel_table[i].frame::<PhysAddrSv32>(), kernel_table[i].flags());
         }
         #[cfg(target_arch = "riscv64")]
-        for i in 509..512 {
-            if i == 510 {
-                // MMIO range 0x60000000 - 0x7FFFFFFF does not work as a large page, dunno why
-                continue;
+        {
+            for i in 509..512 {
+                table[i].set(kernel_table[i].frame::<PhysAddrSv39>(), kernel_table[i].flags());
             }
-            let flags =
-                EF::VALID | EF::READABLE | EF::WRITABLE | EF::EXECUTABLE | EF::ACCESSED | EF::DIRTY;
-            let frame = Frame::of_addr(PhysAddr::new_u64(
-                ((0xFFFFFF80_00000000 + (i << 30)) - PHYSICAL_MEMORY_OFFSET) as u64,
-            ));
-            table[i].set(frame, flags);
+            // extra mapping for KSEG2 (used for kernel modules)
+            let i = (KSEG2_START - 0xFFFFFF80_00000000) >> 30;
+            table[i].set(kernel_table[i].frame::<PhysAddrSv39>(), kernel_table[i].flags());
         }
     }
 

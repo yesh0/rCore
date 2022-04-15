@@ -1,10 +1,12 @@
-use crate::consts::{KERNEL_OFFSET, MEMORY_END, MEMORY_OFFSET};
+use crate::consts::{KERNEL_OFFSET, MEMORY_END, MEMORY_OFFSET, KSEG2_START};
 use crate::memory::{init_heap, MemorySet, FRAME_ALLOCATOR};
 use core::mem;
 use log::*;
 use rcore_memory::PAGE_SIZE;
+use rcore_memory::paging::PageTable;
 use riscv::asm::sfence_vma_all;
 use riscv::register::{satp, sstatus, stval};
+use super::paging::PageTableImpl;
 
 /// Initialize the memory management module
 pub fn init(dtb: usize) {
@@ -48,13 +50,25 @@ fn init_frame_allocator() {
     }
 }
 
+/// See implementation of x86-64
+pub fn init_kernel_kseg2_map() {
+    let mut page_table = unsafe { PageTableImpl::kernel_table() };
+    // Dirty hack here:
+    // We do not really need the mapping. Indeed, we only need the second-level page table.
+    // Second-level page table item can then be copied to all page tables safely.
+    // This hack requires the page table not to recycle the second level page table on unmap.
+
+    page_table.map(KSEG2_START, 0x0).update();
+    page_table.unmap(KSEG2_START);
+}
+
 /// Remap the kernel memory address with 4K page recorded in p1 page table
 fn remap_the_kernel(_dtb: usize) {
-    let ms = MemorySet::new();
+    let mut ms = MemorySet::new_bare();
+    let mut page_table = ms.get_page_table_mut();
+    page_table.map_kernel_initial();
     unsafe {
         ms.activate();
-    }
-    unsafe {
         SATP = ms.token();
     }
     mem::forget(ms);
@@ -63,7 +77,7 @@ fn remap_the_kernel(_dtb: usize) {
 
 // First core stores its SATP here.
 // Other cores load it later.
-static mut SATP: usize = 0;
+pub static mut SATP: usize = 0;
 
 pub unsafe fn clear_bss() {
     let start = sbss as usize;

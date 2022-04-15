@@ -102,7 +102,7 @@ fn page_fault(stval: usize, sepc: &mut usize, access: AccessType) {
         *sepc = crate::memory::read_user_fixup as usize;
         return;
     }
-    error!("unhandled page fault {:#x} from {:#x}", addr, sepc);
+    error!("unhandled page fault {:#x} from {:#x}, type: {:?}", addr, sepc, access);
     panic!("unhandled page fault");
 }
 
