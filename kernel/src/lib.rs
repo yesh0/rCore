@@ -77,7 +77,9 @@ pub mod arch;
 #[path = "arch/aarch64/mod.rs"]
 pub mod arch;
 
+pub mod bpf;
 pub mod kprobes;
+
 use kprobes::register_kprobe;
 use alloc::sync::Arc;
 use trapframe::TrapFrame;
