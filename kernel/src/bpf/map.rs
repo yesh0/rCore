@@ -8,25 +8,41 @@ use core::ptr::null;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 use lazy_static::lazy_static;
 
-#[derive(Clone, Copy)]
-struct MapAttr {
-    map_type: u32,
-    key_size: u32,
-    value_size: u32,
-    max_entries: u32,
+use super::consts::*;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct MapAttr {
+    pub map_type: u32,
+    pub key_size: u32,
+    pub value_size: u32,
+    pub max_entries: u32,
 }
 
-struct InternalMapAttr {
-    key_size: usize,
-    value_size: usize,
-    max_entries: usize,
+#[derive(Debug, Clone, Copy)]
+pub struct InternalMapAttr {
+    pub key_size: usize,
+    pub value_size: usize,
+    pub max_entries: usize,
 }
 
-struct MapOpAttr {
-    map_fd: u32,
-    key: u64,
-    value: u64,
-    flags: u64,
+impl From<MapAttr> for InternalMapAttr {
+    fn from(attr: MapAttr) -> Self {
+        Self {
+            key_size: attr.key_size as usize,
+            value_size: attr.value_size as usize,
+            max_entries: attr.max_entries as usize,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct MapOpAttr {
+    pub map_fd: u32,
+    pub key: u64,
+    pub value: u64,
+    pub flags: u64,
 }
 
 trait BpfMap {
@@ -34,12 +50,8 @@ trait BpfMap {
     fn update(&mut self, key: *const u8, value: *const u8, flags: u64) -> SysResult;
     fn delete(&mut self, key: *const u8) -> SysResult;
     fn next_key(&self, key: *const u8, next_key: *mut u8) -> SysResult;
+    fn get_attr(&self) -> InternalMapAttr;
 }
-
-pub const BPF_MAP_TYPE_UNSPEC: u32 = 0;
-pub const BPF_MAP_TYPE_HASH: u32 = 1;
-pub const BPF_MAP_TYPE_ARRAY: u32 = 2;
-pub const BPF_MAP_TYPE_PROG_ARRAY: u32 = 3;
 
 type HashType = u32; // emmm
 
@@ -132,9 +144,60 @@ impl BpfMap for ArrayMap {
             Err(ENOENT)
         }
     }
+
+    fn get_attr(&self) -> InternalMapAttr {
+        self.attr
+    }
 }
 
 lazy_static! {
-    static ref BPF_MAPS: Mutex<BTreeMap<u32, Arc<dyn BpfMap + Sync + Send>>> =
+    // TODO: Mutex in Mutex seems stupid. better solution?
+    static ref BPF_MAPS: Mutex<BTreeMap<u32, Arc<Mutex<dyn BpfMap + Send + Sync>>>> =
         Mutex::new(BTreeMap::new());
+}
+
+// eBPF map fd base
+const BPF_MAP_FD_BASE: u32 = 0x10000000;
+
+pub fn is_map_fd(fd: u32) -> bool {
+    fd >= BPF_MAP_FD_BASE
+}
+
+pub fn bpf_map_create(attr: MapAttr) -> SysResult {
+    let internal_attr = InternalMapAttr::from(attr);
+    let mut bpf_maps = BPF_MAPS.lock();
+    let map_fd = bpf_maps.len() as u32 + BPF_MAP_FD_BASE;
+    match attr.map_type {
+        BPF_MAP_TYPE_ARRAY => {
+            // array index must have size of 4
+            if internal_attr.key_size != 4 {
+                return Err(EINVAL);
+            }
+            let map = ArrayMap::new(internal_attr);
+            bpf_maps.insert(map_fd, Arc::new(Mutex::new(map)));
+            Ok(map_fd as usize)
+        }
+        _ => Err(EINVAL)
+    }
+}
+
+pub fn bpf_map_close(fd: u32) -> SysResult {
+    BPF_MAPS.lock().remove(&fd).map_or(Ok(0), |_| Err(ENOENT))
+}
+
+pub fn bpf_map_get_attr(fd: u32) -> Option<InternalMapAttr> {
+    Some(BPF_MAPS.lock().get(&fd)?.lock().get_attr())
+}
+
+pub fn bpf_map_ops(fd: u32, op: usize, key: *const u8, value: *mut u8, flags: u64) -> SysResult {
+    let bpf_maps = BPF_MAPS.lock();
+    let map_wrapper = bpf_maps.get(&fd).ok_or(ENOENT)?;
+    let mut map = map_wrapper.lock();
+    match op {
+        BPF_MAP_LOOKUP_ELEM => map.lookup(key, value),
+        BPF_MAP_UPDATE_ELEM => map.update(key, value, flags),
+        BPF_MAP_DELETE_ELEM => map.delete(key),
+        BPF_MAP_GET_NEXT_KEY => map.next_key(key, value),
+        _ => Err(EINVAL)
+    }
 }

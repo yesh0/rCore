@@ -17,6 +17,7 @@ use rcore_memory::VMError;
 use trapframe::TrapFrame;
 use trapframe::{GeneralRegs, UserContext};
 
+pub use self::bpf::*;
 pub use self::custom::*;
 pub use self::fs::*;
 pub use self::ipc::*;
@@ -29,6 +30,7 @@ pub use self::signal::*;
 pub use self::time::*;
 pub use self::user::*;
 
+mod bpf;
 mod custom;
 mod fs;
 mod ipc;
@@ -429,6 +431,9 @@ impl Syscall<'_> {
                 Err(SysError::ENOSYS)
             }
             SYS_DELETE_MODULE => self.sys_delete_module(args[0] as *const u8, args[1] as u32),
+
+            // bpf
+            SYS_BPF => self.sys_bpf(args[0], args[1], args[2]),
 
             // custom
             SYS_MAP_PCI_DEVICE => self.sys_map_pci_device(args[0], args[1]),

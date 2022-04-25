@@ -1,3 +1,4 @@
+pub mod consts;
 mod helpers;
-mod map;
+pub mod map;
 mod program;
