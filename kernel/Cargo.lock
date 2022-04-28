@@ -192,6 +192,12 @@ version = "1.0.3"
 source = "git+https://github.com/rcore-os/device_tree-rs?rev=eee2c23#eee2c23d50a2cdacb7777429d71e00691b361978"
 
 [[package]]
+name = "dyn-fmt"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a0836c9bd73a9d3ca55b0effc5b1eedf96dd13ef994389bcac6d4d33c46188"
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -492,6 +498,7 @@ dependencies = [
  "buddy_system_allocator",
  "compression",
  "device_tree",
+ "dyn-fmt",
  "executor",
  "isomorphic_drivers",
  "lazy_static",

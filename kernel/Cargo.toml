@@ -78,6 +78,7 @@ volatile = "0.2"
 woke = "0.0.2"
 xmas-elf = "0.7"
 rvm = { git = "https://github.com/rcore-riscv-hypervisor-dev/RVM", rev = "2867e78", optional = true }
+dyn-fmt = { version = "0.3.0", default-features = false }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 apic = { git = "https://github.com/rcore-os/apic-rs", rev = "fb86bd7" }
