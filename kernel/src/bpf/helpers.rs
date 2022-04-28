@@ -1,19 +1,27 @@
+use core::ptr::{null, null_mut};
+
 use crate::trap::wall_tick;
+use super::{map::bpf_map_ops, consts::*};
 
 pub type BpfHelperFunc = unsafe fn(u64, u64, u64, u64, u64) -> u64;
 
 // void *bpf_map_lookup_elem(struct bpf_map *map, const void *key)
 unsafe fn bpf_map_lookup_elem(map_fd: u64, key: u64, _1: u64, _2: u64, _3: u64) -> u64 {
-    0
+    let mut value: u64 = 0;
+    // should we just directly unwrap ?
+    bpf_map_ops(map_fd as u32, BPF_MAP_LOOKUP_ELEM, key as *const u8, (&mut value) as *mut u64 as *mut u8, 0).unwrap();
+    return value;
 }
 
 // long bpf_map_update_elem(struct bpf_map *map, const void *key, const void *value, u64 flags)
 unsafe fn bpf_map_update_elem(map_fd: u64, key: u64, value: u64, flags: u64, _1: u64) -> u64 {
+    bpf_map_ops(map_fd as u32, BPF_MAP_UPDATE_ELEM, key as *const u8, value as *mut u8, flags).unwrap();
     0
 }
 
 // long bpf_map_delete_elem(struct bpf_map *map, const void *key)
 unsafe fn bpf_map_delete_elem(map_fd: u64, key: u64, _1: u64, _2: u64, _3: u64) -> u64 {
+    bpf_map_ops(map_fd as u32, BPF_MAP_DELETE_ELEM, key as *const u8, null_mut::<u8>(), 0).unwrap();
     0
 }  
 
