@@ -10,6 +10,9 @@ pub const BPF_PROG_LOAD: usize = 5;
 pub const BPF_PROG_ATTACH: usize = 8;
 pub const BPF_PROG_DETACH: usize = 9;
 
+// custom commands
+pub const BPF_PROG_LOAD_EX: usize = 1000;
+
 // eBPF map types
 pub const BPF_MAP_TYPE_UNSPEC: u32 = 0;
 pub const BPF_MAP_TYPE_HASH: u32 = 1;

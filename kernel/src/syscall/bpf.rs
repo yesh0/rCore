@@ -2,6 +2,7 @@ use super::{SysError::*, *};
 
 use crate::bpf::consts::*;
 use crate::bpf::map::*;
+use crate::bpf::program::*;
 
 impl Syscall<'_> {
     pub fn sys_bpf(&self, cmd: usize, attr_ptr: usize, _size: usize) -> SysResult {
@@ -19,6 +20,15 @@ impl Syscall<'_> {
                 let op_attr = ptr.read()?;
                 let map_attr = bpf_map_get_attr(op_attr.map_fd).ok_or(ENOENT)?;
                 self.handle_map_ops(cmd, op_attr, map_attr)
+            }
+            // NOTE: non-standard command
+            BPF_PROG_LOAD_EX => {
+                let ptr = UserInPtr::<ProgramLoadExAttr>::from(attr_ptr);
+                let attr = ptr.read()?;
+                let base = attr.elf_prog as *mut u8;
+                let size = attr.elf_size as usize;
+                let prog = unsafe { self.vm().check_write_array(base, size)? };
+                bpf_program_load_ex(prog)
             }
             _ => Err(EINVAL),
         }

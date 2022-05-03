@@ -198,6 +198,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a0836c9bd73a9d3ca55b0effc5b1eedf96dd13ef994389bcac6d4d33c46188"
 
 [[package]]
+name = "ebpf2rv"
+version = "0.1.0"
+source = "git+https://github.com/latte-c/ebpf2rv?rev=50a7de5#50a7de5df0e0ef0de9e0cc9869ef0853f380e54f"
+dependencies = [
+ "rvjit",
+]
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -499,6 +507,7 @@ dependencies = [
  "compression",
  "device_tree",
  "dyn-fmt",
+ "ebpf2rv",
  "executor",
  "isomorphic_drivers",
  "lazy_static",
@@ -702,6 +711,11 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "rvjit"
+version = "0.1.0"
+source = "git+https://github.com/latte-c/rvjit?rev=58e145d#58e145d75243bc934a6f9a472fce4ee62ba11525"
 
 [[package]]
 name = "rvm"
