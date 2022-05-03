@@ -80,23 +80,7 @@ pub mod arch;
 pub mod bpf;
 pub mod kprobes;
 
-use kprobes::register_kprobe;
-use alloc::sync::Arc;
-use trapframe::TrapFrame;
-
-fn some_handler(_ctx: &mut TrapFrame) {
-    warn!("hello from some handler");
-}
-
-#[inline(never)]
-fn foo() {
-    error!("foo");
-}
-
 pub fn kmain() -> ! {
-    // register_kprobe(foo as usize, Arc::new(some_handler), None);
-    // foo();
-
     // kprobes::kprobes::run_kprobes_tests();
     kprobes::kretprobes::run_kretprobes_test();
 

@@ -8,12 +8,14 @@ use super::arch::{
     alloc_breakpoint, free_breakpoint, get_trapframe_pc, get_trapframe_ra, set_trapframe_pc,
     set_trapframe_ra,
 };
-use super::kprobes::{register_kprobe, Handler};
+use super::kprobes::{register_kprobe, unregister_kprobe, Handler};
+use super::{KProbeArgs, KRetProbeArgs};
 
 struct KRetProbe {
     entry_handler: Option<Arc<Handler>>,
     exit_handler: Arc<Handler>,
     instance_limit: usize,
+    user_data: usize,
     nr_instances: usize,
     nr_misses: usize,
 }
@@ -33,12 +35,14 @@ impl KRetProbe {
         exit_handler: Arc<Handler>,
         entry_handler: Option<Arc<Handler>>,
         limit: Option<usize>,
+        user_data: usize,
     ) -> Self {
         let instance_limit = limit.unwrap_or(usize::max_value());
         Self {
             entry_handler,
             exit_handler,
             instance_limit,
+            user_data,
             nr_instances: 0,
             nr_misses: 0,
         }
@@ -54,7 +58,7 @@ impl KRetProbeInstance {
     }
 }
 
-fn kretprobe_kprobe_pre_handler(tf: &mut TrapFrame) {
+fn kretprobe_kprobe_pre_handler(tf: &mut TrapFrame, _data: usize) -> isize {
     let pc = get_trapframe_pc(tf);
     let mut kretprobes = KRETPROBES.lock();
     let probe = kretprobes.get_mut(&pc).unwrap();
@@ -65,12 +69,12 @@ fn kretprobe_kprobe_pre_handler(tf: &mut TrapFrame) {
             pc
         );
         probe.nr_misses += 1;
-        return;
+        return 0;
     }
 
     probe.nr_instances += 1;
     if let Some(handler) = &probe.entry_handler {
-        handler(tf);
+        let _ = handler(tf, probe.user_data);
     }
 
     let ra = get_trapframe_ra(tf);
@@ -78,6 +82,7 @@ fn kretprobe_kprobe_pre_handler(tf: &mut TrapFrame) {
     let bp_addr = alloc_breakpoint();
     INSTANCES.lock().insert(bp_addr, instance);
     set_trapframe_ra(tf, bp_addr);
+    0
 }
 
 pub fn kretprobe_trap_handler(tf: &mut TrapFrame) -> bool {
@@ -89,7 +94,7 @@ pub fn kretprobe_trap_handler(tf: &mut TrapFrame) -> bool {
     let instance = instance_map.get(&pc).unwrap();
 
     let probe = kretprobes.get_mut(&instance.entry_addr).unwrap();
-    (probe.exit_handler)(tf);
+    let _ = (probe.exit_handler)(tf, probe.user_data);
     probe.nr_instances -= 1;
 
     let ra = instance.ret_addr;
@@ -100,20 +105,41 @@ pub fn kretprobe_trap_handler(tf: &mut TrapFrame) -> bool {
     true
 }
 
-pub fn register_kretprobe(
-    entry_addr: usize,
-    exit_handler: Arc<Handler>,
-    entry_handler: Option<Arc<Handler>>,
-    limit: Option<usize>,
-) -> bool {
-    if !register_kprobe(entry_addr, Arc::new(kretprobe_kprobe_pre_handler), None) {
+pub fn register_kretprobe(entry_addr: usize, args: KRetProbeArgs) -> bool {
+    if !register_kprobe(entry_addr, KProbeArgs::from(kretprobe_kprobe_pre_handler)) {
         error!("[kretprobe] failed to register kprobe.");
         return false;
     }
 
-    let probe = KRetProbe::new(exit_handler, entry_handler, limit);
+    let probe = KRetProbe::new(
+        args.exit_handler,
+        args.entry_handler,
+        args.limit,
+        args.user_data,
+    );
     KRETPROBES.lock().insert(entry_addr, probe);
     true
+}
+
+pub fn unregister_kretprobe(entry_addr: usize) -> bool {
+    let mut kretprobes = KRETPROBES.lock();
+    if let Some(probe) = kretprobes.get(&entry_addr) {
+        if probe.nr_instances > 0 {
+            error!(
+                "cannot remove kretprobe for address {:#x} as it is still active",
+                entry_addr
+            );
+            false
+        } else {
+            let ok = unregister_kprobe(entry_addr);
+            if ok {
+                kretprobes.remove(&entry_addr).unwrap();
+            }
+            ok
+        }
+    } else {
+        false
+    }
 }
 
 #[inline(never)]
@@ -126,20 +152,23 @@ fn recursive_fn(i: isize) -> isize {
     return i + recursive_fn(i + 1);
 }
 
-fn test_entry_handler(tf: &mut TrapFrame) {
+fn test_entry_handler(tf: &mut TrapFrame, _data: usize) -> isize {
     warn!("entering fn, a0 = {}", tf.general.a0);
+    0
 }
 
-fn test_exit_handler(tf: &mut TrapFrame) {
+fn test_exit_handler(tf: &mut TrapFrame, _data: usize) -> isize {
     warn!("exiting fn, a0 = {}", tf.general.a0);
+    0
 }
 
 pub fn run_kretprobes_test() {
-    register_kretprobe(
-        recursive_fn as usize,
-        Arc::new(test_exit_handler),
-        Some(Arc::new(test_entry_handler)),
-        None,
-    );
+    let args = KRetProbeArgs {
+        exit_handler: Arc::new(test_exit_handler),
+        entry_handler: Some(Arc::new(test_entry_handler)),
+        limit: None,
+        user_data: 0,
+    };
+    register_kretprobe(recursive_fn as usize, args);
     recursive_fn(1);
 }
