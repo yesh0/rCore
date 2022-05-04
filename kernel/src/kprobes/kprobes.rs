@@ -4,10 +4,9 @@ use alloc::sync::Arc;
 use core::ops::Fn;
 use core::slice::from_raw_parts;
 use lazy_static::*;
-use trapframe::TrapFrame;
 
 use super::arch::*;
-use super::KProbeArgs;
+use super::{KProbeArgs, TrapFrame};
 
 pub type Handler = dyn Fn(&mut TrapFrame, usize) -> isize + Sync + Send;
 pub type HandlerFn = fn(&mut TrapFrame, usize) -> isize;

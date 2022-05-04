@@ -2,6 +2,7 @@ pub mod consts;
 mod helpers;
 pub mod map;
 pub mod program;
+pub mod tracepoints;
 
 use crate::sync::SpinLock as Mutex;
 use alloc::collections::BTreeMap;

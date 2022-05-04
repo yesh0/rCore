@@ -3,7 +3,7 @@ pub mod kretprobes;
 
 use alloc::sync::Arc;
 use kprobes::{Handler, HandlerFn};
-use trapframe::TrapFrame;
+pub use trapframe::TrapFrame;
 
 #[cfg(riscv)]
 #[path = "arch/riscv/mod.rs"]

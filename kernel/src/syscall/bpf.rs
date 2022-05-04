@@ -3,6 +3,7 @@ use super::{SysError::*, *};
 use crate::bpf::consts::*;
 use crate::bpf::map::*;
 use crate::bpf::program::*;
+use crate::bpf::tracepoints::*;
 
 impl Syscall<'_> {
     pub fn sys_bpf(&self, cmd: usize, attr_ptr: usize, _size: usize) -> SysResult {
@@ -20,6 +21,12 @@ impl Syscall<'_> {
                 let op_attr = ptr.read()?;
                 let map_attr = bpf_map_get_attr(op_attr.map_fd).ok_or(ENOENT)?;
                 self.handle_map_ops(cmd, op_attr, map_attr)
+            }
+            BPF_PROG_ATTACH => {
+                let ptr = UserInPtr::<AttachTarget>::from(attr_ptr);
+                let attach_attr = ptr.read()?;
+                let target = check_and_clone_cstr(attach_attr.target)?;
+                bpf_program_attach(&target, attach_attr.prog_fd)
             }
             // NOTE: non-standard command
             BPF_PROG_LOAD_EX => {

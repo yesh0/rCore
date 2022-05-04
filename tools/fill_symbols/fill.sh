@@ -2,8 +2,12 @@
 echo "Filling kernel symbols."
 rcore=$1
 tmpfile=$(mktemp /tmp/rcore-symbols.txt.XXXXXX)
+symbols=$(mktemp /tmp/rcore-symbols.txt.XXXXXX) # original symbols
+exsymbs=$(mktemp /tmp/rcore-symbols.txt.XXXXXX) # demangled symbols
 echo "Writing symbol table."
-$2nm -g -D $1 >$tmpfile
+$2nm -g -D $1 > $symbols
+cat $symbols | rustfilt > $exsymbs
+cat $symbols $exsymbs | sort -u > $tmpfile
 gzip $tmpfile
 tmpfile=$tmpfile.gz
 symbol_table_loc=$((16#$($2objdump -D $rcore -j .data -F |grep "<rcore_symbol_table>" |grep -oEi "0x[0-9a-f]+" |grep -oEi "[0-9a-f][0-9a-f]+")))
@@ -19,4 +23,5 @@ FILESIZE=$(stat -c%s "$tmpfile")
 echo $FILESIZE
 dd bs=1 count=$FILESIZE if=$tmpfile of=$rcore seek=$symbol_table_size_loc conv=notrunc
 rm $tmpfile
+rm $symbols $exsymbs
 echo "Done."

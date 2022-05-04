@@ -2,14 +2,13 @@ use crate::sync::SpinLock as Mutex;
 use alloc::collections::btree_map::BTreeMap;
 use alloc::sync::Arc;
 use lazy_static::*;
-use trapframe::TrapFrame;
 
 use super::arch::{
     alloc_breakpoint, free_breakpoint, get_trapframe_pc, get_trapframe_ra, set_trapframe_pc,
     set_trapframe_ra,
 };
 use super::kprobes::{register_kprobe, unregister_kprobe, Handler};
-use super::{KProbeArgs, KRetProbeArgs};
+use super::{KProbeArgs, KRetProbeArgs, TrapFrame};
 
 struct KRetProbe {
     entry_handler: Option<Arc<Handler>>,
