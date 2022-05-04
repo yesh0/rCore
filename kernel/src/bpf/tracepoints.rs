@@ -1,15 +1,15 @@
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use lazy_static::lazy_static;
 use trapframe::TrapFrame;
 
-use crate::sync::SpinLock as Mutex;
-use crate::syscall::{SysResult, SysError::*};
-use crate::kprobes::{KProbeArgs, register_kprobe};
+use crate::kprobes::{register_kprobe, KProbeArgs};
 use crate::lkm::manager::ModuleManager;
+use crate::sync::SpinLock as Mutex;
+use crate::syscall::{SysError::*, SysResult};
 
-use super::{*, BpfObject::*};
+use super::{BpfObject::*, *};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -32,8 +32,8 @@ pub struct Tracepoint {
 }
 
 lazy_static! {
-    static ref ATTACHED_PROGS: Mutex<BTreeMap<Tracepoint, Vec<u32>>>
-        = Mutex::new(BTreeMap::new());
+    static ref ATTACHED_PROGS: Mutex<BTreeMap<Tracepoint, Vec<Arc<BpfProgram>>>> =
+        Mutex::new(BTreeMap::new());
 }
 
 fn kprobe_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
@@ -41,15 +41,12 @@ fn kprobe_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
         tp_type: TracepointType::KProbe,
         token: probed_addr,
     };
-    // TODO: eBPF programs should be shared
-    let objs = BPF_OBJECTS.lock();
-    let mut map = ATTACHED_PROGS.lock();
-    let prog_fds = map.get(&tracepoint).unwrap();
-    for fd in prog_fds {
-        if let Some(Program(program)) = objs.get(fd) {
-            let result = program.run();
-            error!("run result: {}", result);
-        }
+
+    let map = ATTACHED_PROGS.lock();
+    let programs = map.get(&tracepoint).unwrap();
+    for program in programs {
+        let result = program.run();
+        error!("run result: {}", result);
     }
     0
 }
@@ -60,10 +57,10 @@ fn resolve_symbol(symbol: &str) -> Option<usize> {
 
 pub fn bpf_program_attach(target: &str, prog_fd: u32) -> SysResult {
     // check program fd
-    let _ = {
+    let program = {
         let objs = BPF_OBJECTS.lock();
         match objs.get(&prog_fd) {
-            Some(Program(_)) => Ok(()),
+            Some(Program(shared_program)) => Ok(shared_program.clone()),
             _ => Err(ENOENT),
         }
     }?;
@@ -84,12 +81,13 @@ pub fn bpf_program_attach(target: &str, prog_fd: u32) -> SysResult {
         TracepointType::KProbe => {
             let addr = resolve_symbol(fn_name).ok_or(ENOENT)?;
             let tracepoint = Tracepoint {
-                tp_type, token: addr,
+                tp_type,
+                token: addr,
             };
 
             let mut map = ATTACHED_PROGS.lock();
-            if let Some(prog_fds) = map.get_mut(&tracepoint) {
-                prog_fds.push(prog_fd);
+            if let Some(programs) = map.get_mut(&tracepoint) {
+                programs.push(program);
             } else {
                 let args = KProbeArgs {
                     pre_handler: Arc::new(kprobe_handler),
@@ -97,10 +95,10 @@ pub fn bpf_program_attach(target: &str, prog_fd: u32) -> SysResult {
                     user_data: addr,
                 };
                 let _ = register_kprobe(addr, args).ok_or(EINVAL)?;
-                map.insert(tracepoint, vec![prog_fd]);
+                map.insert(tracepoint, vec![program]);
             }
         }
-        _ => todo!()
+        _ => todo!(),
     }
     Ok(0)
 }

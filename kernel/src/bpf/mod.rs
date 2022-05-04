@@ -14,7 +14,7 @@ use program::BpfProgram;
 
 pub enum BpfObject {
     Map(SharedBpfMap),
-    Program(BpfProgram),
+    Program(Arc<BpfProgram>),
 }
 
 impl BpfObject {
@@ -25,7 +25,7 @@ impl BpfObject {
         }
     }
 
-    pub fn is_program(&self) -> Option<&BpfProgram> {
+    pub fn is_program(&self) -> Option<&Arc<BpfProgram>> {
         match &self {
             BpfObject::Program(program) => Some(program),
             _ => None,
@@ -53,7 +53,7 @@ pub fn bpf_object_create_map(fd: u32, map: SharedBpfMap) {
 }
 
 pub fn bpf_object_create_program(fd: u32, prog: BpfProgram) {
-    bpf_object_create(fd, BpfObject::Program(prog));
+    bpf_object_create(fd, BpfObject::Program(Arc::new(prog)));
 }
 
 pub fn bpf_object_remove(fd: u32) -> Option<BpfObject> {

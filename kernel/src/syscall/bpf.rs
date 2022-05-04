@@ -5,6 +5,8 @@ use crate::bpf::map::*;
 use crate::bpf::program::*;
 use crate::bpf::tracepoints::*;
 
+use alloc::vec::Vec;
+
 impl Syscall<'_> {
     pub fn sys_bpf(&self, cmd: usize, attr_ptr: usize, _size: usize) -> SysResult {
         // error!("sys_bpf cmd = {}", cmd);
@@ -32,10 +34,20 @@ impl Syscall<'_> {
             BPF_PROG_LOAD_EX => {
                 let ptr = UserInPtr::<ProgramLoadExAttr>::from(attr_ptr);
                 let attr = ptr.read()?;
+                // ELF relocatable object info
                 let base = attr.elf_prog as *mut u8;
                 let size = attr.elf_size as usize;
                 let prog = unsafe { self.vm().check_write_array(base, size)? };
-                bpf_program_load_ex(prog)
+                // map fd array
+                let arr_len = attr.map_array_len as usize;
+                let map_fd_array = unsafe { self.vm().check_read_array(attr.map_array, arr_len)? };
+                let mut map_info = Vec::new();
+                for i in 0..arr_len {
+                    let entry = &map_fd_array[i];
+                    let name = check_and_clone_cstr(entry.name)?;
+                    map_info.push((name, entry.fd));
+                }
+                bpf_program_load_ex(prog, &map_info)
             }
             _ => Err(EINVAL),
         }

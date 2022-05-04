@@ -50,6 +50,9 @@ pub trait BpfMap {
     fn delete(&mut self, key: *const u8) -> SysResult;
     fn next_key(&self, key: *const u8, next_key: *mut u8) -> SysResult;
     fn get_attr(&self) -> InternalMapAttr;
+
+    // this lookup is intended for the helper function
+    fn lookup_helper(&self, key: *const u8) -> SysResult;
 }
 
 type HashType = u32; // emmm
@@ -147,6 +150,15 @@ impl BpfMap for ArrayMap {
     fn get_attr(&self) -> InternalMapAttr {
         self.attr
     }
+
+    fn lookup_helper(&self, key: *const u8) -> SysResult {
+        let index = unsafe { *(key as *const u32) } as usize;
+        if index >= self.attr.max_entries {
+            return Err(ENOENT);
+        }
+
+        Ok(self.get_element_addr(index))
+    }
 }
 
 pub type SharedBpfMap = Arc<Mutex<dyn BpfMap + Send + Sync>>;
@@ -193,4 +205,12 @@ pub fn bpf_map_ops(fd: u32, op: usize, key: *const u8, value: *mut u8, flags: u6
         BPF_MAP_GET_NEXT_KEY => map.next_key(key, value),
         _ => Err(EINVAL),
     }
+}
+
+pub fn bpf_map_lookup_helper(fd: u32, key: *const u8) -> SysResult {
+    let bpf_objs = BPF_OBJECTS.lock();
+    let obj = bpf_objs.get(&fd).ok_or(ENOENT)?;
+    let shared_map = obj.is_map().ok_or(ENOENT)?;
+    let map = shared_map.lock();
+    map.lookup_helper(key)
 }

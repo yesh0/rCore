@@ -18,3 +18,12 @@ pub const BPF_MAP_TYPE_UNSPEC: u32 = 0;
 pub const BPF_MAP_TYPE_HASH: u32 = 1;
 pub const BPF_MAP_TYPE_ARRAY: u32 = 2;
 pub const BPF_MAP_TYPE_PROG_ARRAY: u32 = 3;
+
+// eBPF LLVM relocations
+// see https://www.kernel.org/doc/html/latest/bpf/llvm_reloc.html
+pub const R_BPF_NONE: u32 = 0;
+pub const R_BPF_64_64: u32 = 1;
+pub const R_BPF_64_ABS64: u32 = 2;
+pub const R_BPF_64_ABS32: u32 = 3;
+pub const R_BPF_64_NODYLD32: u32 = 4;
+pub const R_BPF_64_32: u32 = 10;
