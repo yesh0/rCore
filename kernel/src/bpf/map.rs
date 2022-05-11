@@ -1,8 +1,11 @@
+use crate::memory;
 use crate::sync::SpinLock as Mutex;
 use crate::syscall::{SysError::*, SysResult};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use rlibc::memcmp;
 use core::marker::PhantomData;
+use core::mem;
 use core::ptr::null;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
@@ -63,6 +66,12 @@ struct MapValue {
     marker: PhantomData<&'static [u8]>, // how to handle this?
 }
 
+#[derive(Clone, Copy)]
+struct MapKey {
+    pub ptr: *const u8,
+    marker: PhantomData<&'static [u8]>,
+}
+
 fn null_map_value() -> MapValue {
     MapValue {
         ptr: null(),
@@ -83,7 +92,7 @@ struct ArrayMap {
 
 struct HashMap {
     attr: InternalMapAttr,
-    map: BTreeMap<HashType, MapValue>,
+    map: BTreeMap<HashType, Vec<(MapKey, MapValue)>>,
 }
 
 impl ArrayMap {
@@ -97,6 +106,17 @@ impl ArrayMap {
     fn get_element_addr(&self, index: usize) -> usize {
         let offset = self.attr.value_size * index;
         self.storage.as_ptr() as usize + offset
+    }
+}
+
+impl HashMap {
+    fn new(attr: InternalMapAttr) -> Self {
+        let map = BTreeMap::new();
+        Self { attr, map }
+    }
+
+    fn hash(kptr: *const u8, ksize: usize) -> u32 {
+        todo!("implemented your hash function here")
     }
 }
 
@@ -158,6 +178,38 @@ impl BpfMap for ArrayMap {
         }
 
         Ok(self.get_element_addr(index))
+    }
+}
+
+impl BpfMap for HashMap {
+    fn lookup(&self, key: *const u8, value: *mut u8) -> SysResult {
+        // get hashcode from key
+        let hashcode = self.hash(key, self.attr.key_size);
+        match self.map.get(&hashcode) {
+            Some(v) => {
+                for kv in v {
+                    if unsafe { memcmp(kv.0.ptr, key, self.attr.key_size) == 0 } {
+                        copy(value, kv.1.ptr, self.attr.value_size);
+                        return Ok(0);
+                    }
+                }
+                return Err(ENOENT);
+            },
+            None => return Err(ENOENT)
+        };
+    }
+
+    fn update(&mut self, key: *const u8, value: *const u8, flags: u64) -> SysResult {
+        let hashcode = self.hash(key, self.attr.key_size);
+        if let Some(kvlist) = self.map.get(&hashcode) {
+            for kv in kvlist {
+                if unsafe { memcmp(kv.0.ptr, key, self.attr.key_size) } == 0 {
+                    copy(kv.1.ptr as *mut u8, value, self.attr.value_size);
+                    return Ok(0);
+                }
+            }
+        }
+        return Ok(0);
     }
 }
 

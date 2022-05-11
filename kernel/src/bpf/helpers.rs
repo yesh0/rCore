@@ -1,4 +1,4 @@
-use crate::syscall::SysResult;
+use crate::{syscall::SysResult, trap::uptime_msec};
 use core::ptr::{null, null_mut};
 
 use super::{
@@ -69,7 +69,7 @@ fn bpf_probe_read(dst: u64, size: u64, src: u64, _1: u64, _2: u64) -> i64 {
 // u64 bpf_ktime_get_ns(void)
 // return current ktime
 fn bpf_ktime_get_ns(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
-    todo!()
+    return (uptime_msec() * 1000000) as i64
 }
 
 // long bpf_trace_printk(const char *fmt, u32 fmt_size, ...)
