@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 use crate::{syscall::SysResult, trap::uptime_msec};
-=======
-use crate::process::current_thread;
-use crate::syscall::SysResult;
->>>>>>> 3faba5730b1c76c30a1bf58ed0f2231271e5bc0c
 use core::ptr::{null, null_mut};
 
 use super::{
@@ -98,14 +93,7 @@ fn bpf_probe_read(dst: u64, size: u64, src: u64, _1: u64, _2: u64) -> i64 {
 // u64 bpf_ktime_get_ns(void)
 // return current ktime
 fn bpf_ktime_get_ns(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
-<<<<<<< HEAD
     return (uptime_msec() * 1000000) as i64
-=======
-    // we actually want some high resolution clocks...
-    let nsec_per_tick = crate::consts::USEC_PER_TICK as i64 * 1000;
-    let ticks = unsafe { crate::trap::wall_tick() } as i64; // weird. why unsafe ?
-    ticks * nsec_per_tick
->>>>>>> 3faba5730b1c76c30a1bf58ed0f2231271e5bc0c
 }
 
 // long bpf_trace_printk(const char *fmt, u32 fmt_size, ...)
