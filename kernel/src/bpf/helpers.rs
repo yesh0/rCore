@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 use crate::{syscall::SysResult, trap::uptime_msec};
+=======
+use crate::process::current_thread;
+use crate::syscall::SysResult;
+>>>>>>> 3faba5730b1c76c30a1bf58ed0f2231271e5bc0c
 use core::ptr::{null, null_mut};
 
 use super::{
@@ -8,7 +13,7 @@ use super::{
 
 pub type BpfHelperFn = fn(u64, u64, u64, u64, u64) -> i64;
 
-pub const HELPER_FN_COUNT: usize = 7;
+pub const HELPER_FN_COUNT: usize = 17;
 pub static HELPER_FN_TABLE: [BpfHelperFn; HELPER_FN_COUNT] = [
     bpf_nop,
     bpf_map_lookup_elem,
@@ -17,7 +22,20 @@ pub static HELPER_FN_TABLE: [BpfHelperFn; HELPER_FN_COUNT] = [
     bpf_probe_read,
     bpf_ktime_get_ns,
     bpf_trace_printk,
+    bpf_get_prandom_u32,
+    bpf_get_smp_processor_id,
+    bpf_nop, // bpf_skb_store_bytes
+    bpf_nop, // bpf_l3_csum_replace
+    bpf_nop, // bpf_l4_csum_replace
+    bpf_nop, // bpf_tail_call
+    bpf_nop, // bpf_clone_redirect
+    bpf_get_current_pid_tgid,
+    bpf_nop, // bpf_get_current_uid_gid
+    bpf_get_current_comm,
 ];
+
+// WARNING: be careful to use bpf_probe_read, bpf_get_current_pid_tgid & bpf_get_current_comm
+// in syscall contexts. obtaining current process information may cause deadlock!
 
 // NOTE: all Err variants are transformed into -1 to distinguish from a valid pointer
 fn convert_result(result: SysResult) -> i64 {
@@ -61,15 +79,33 @@ fn bpf_map_delete_elem(map_fd: u64, key: u64, _1: u64, _2: u64, _3: u64) -> i64 
     convert_result(res)
 }
 
+fn probe_read_user(dst: *mut u8, src: *const u8, len: usize) -> SysResult {
+    let thread = current_thread().unwrap();
+    let vm = thread.vm.lock();
+    let src_slice = unsafe { vm.check_read_array(src , len)? };
+    let dst_slice = unsafe { core::slice::from_raw_parts_mut(dst, len) };
+    dst_slice.copy_from_slice(src_slice);
+    Ok(0)
+}
+
+// TODO: probe read in kernel address space
 // long bpf_probe_read(void *dst, u32 size, const void *unsafe_ptr)
 fn bpf_probe_read(dst: u64, size: u64, src: u64, _1: u64, _2: u64) -> i64 {
-    todo!()
+    let res = probe_read_user(dst as usize as *mut u8, src as usize as *const u8, size as usize);
+    convert_result(res)
 }
 
 // u64 bpf_ktime_get_ns(void)
 // return current ktime
 fn bpf_ktime_get_ns(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
+<<<<<<< HEAD
     return (uptime_msec() * 1000000) as i64
+=======
+    // we actually want some high resolution clocks...
+    let nsec_per_tick = crate::consts::USEC_PER_TICK as i64 * 1000;
+    let ticks = unsafe { crate::trap::wall_tick() } as i64; // weird. why unsafe ?
+    ticks * nsec_per_tick
+>>>>>>> 3faba5730b1c76c30a1bf58ed0f2231271e5bc0c
 }
 
 // long bpf_trace_printk(const char *fmt, u32 fmt_size, ...)
@@ -84,4 +120,38 @@ fn bpf_trace_printk(fmt: u64, fmt_size: u64, p1: u64, p2: u64, p3: u64) -> i64 {
         )
     );
     0 // TODO: return number of bytes written
+}
+
+fn bpf_get_prandom_u32(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
+    todo!()
+}
+
+fn bpf_get_smp_processor_id(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
+    crate::arch::cpu::id() as i64
+}
+
+fn bpf_get_current_pid_tgid(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
+    let thread = current_thread().unwrap();
+    let pid = thread.proc.busy_lock().pid.get() as i64;
+    // NOTE: tgid is the same with pid
+    (pid << 32) | pid
+}
+
+fn bpf_get_current_comm(dst: u64, buf_size: u64, _1: u64, _2: u64, _3: u64) -> i64 {
+    let thread = current_thread().unwrap();
+    let exec_str = thread.proc.busy_lock().exec_path.clone();
+    let exec_path = exec_str.as_bytes();
+    let len = exec_path.len();
+    if (buf_size as usize) < len + 1 {
+        return -1;
+    }
+
+    // NOTE: String is NOT null-terminated. we cannot copy len + 1 bytes directly.
+    let dst_ptr = dst as *mut u8;
+    unsafe {
+        let dst_slice = core::slice::from_raw_parts_mut(dst_ptr, len);
+        dst_slice.copy_from_slice(exec_path);
+        *dst_ptr.add(len) = 0;
+    }
+    len as i64
 }
