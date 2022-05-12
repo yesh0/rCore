@@ -5,7 +5,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use rlibc::memcmp;
 use core::marker::PhantomData;
-use core::mem;
+use core::{mem, slice};
 use core::ptr::null;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
@@ -116,7 +116,12 @@ impl HashMap {
     }
 
     fn hash(kptr: *const u8, ksize: usize) -> u32 {
-        todo!("implemented your hash function here")
+        let seed: u32 = 131313;
+        let hash: u32 = 0;
+        for i in unsafe { slice::from_raw_parts(kptr, uszie) } {
+            hash = hash * seed + i;
+        }
+        return hash;
     }
 
     fn find_opt(&self, kptr: *const u8)  -> Option<&MapValue> {
