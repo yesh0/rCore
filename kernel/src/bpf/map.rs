@@ -118,6 +118,20 @@ impl HashMap {
     fn hash(kptr: *const u8, ksize: usize) -> u32 {
         todo!("implemented your hash function here")
     }
+
+    fn find_opt(&self, kptr: *const u8)  -> Option<&MapValue> {
+        let hashcode = HashMap::hash(kptr, self.attr.key_size);
+        if let Some(kvlist) = self.map.get(&hashcode) {
+            for kv in kvlist {
+                if unsafe { memcmp(kv.0.ptr, kptr, self.attr.key_size) } == 0 {
+                    return Some(&kv.1);
+                }
+            }
+            return None;
+        } else {
+            return None;
+        }
+    }
 }
 
 impl BpfMap for ArrayMap {
@@ -183,33 +197,49 @@ impl BpfMap for ArrayMap {
 
 impl BpfMap for HashMap {
     fn lookup(&self, key: *const u8, value: *mut u8) -> SysResult {
-        // get hashcode from key
-        let hashcode = self.hash(key, self.attr.key_size);
-        match self.map.get(&hashcode) {
-            Some(v) => {
-                for kv in v {
-                    if unsafe { memcmp(kv.0.ptr, key, self.attr.key_size) == 0 } {
-                        copy(value, kv.1.ptr, self.attr.value_size);
-                        return Ok(0);
-                    }
-                }
-                return Err(ENOENT);
-            },
-            None => return Err(ENOENT)
-        };
+        if let Some(mv) = self.find_opt(key) {
+            copy(value, mv.ptr, self.attr.value_size);
+            Ok(0)
+        } else {
+            Err(ENOENT)
+        }
     }
 
     fn update(&mut self, key: *const u8, value: *const u8, flags: u64) -> SysResult {
-        let hashcode = self.hash(key, self.attr.key_size);
-        if let Some(kvlist) = self.map.get(&hashcode) {
-            for kv in kvlist {
+        if let Some(mv) = self.find_opt(key) {
+            copy(mv.ptr as *mut u8, value, self.attr.value_size);
+        }
+        Ok(0)
+    }
+
+    fn delete(&mut self, key: *const u8) -> SysResult {
+        let hashcode = HashMap::hash(key, self.attr.key_size);
+        if let Some(kvlist) = self.map.get_mut(&hashcode) {
+            for i in 0..kvlist.len() {
+                let kv = &kvlist[i];
                 if unsafe { memcmp(kv.0.ptr, key, self.attr.key_size) } == 0 {
-                    copy(kv.1.ptr as *mut u8, value, self.attr.value_size);
+                    kvlist.remove(i);
                     return Ok(0);
                 }
             }
+            Err(ENOENT)
+        } else {
+            Err(ENOENT)
         }
-        return Ok(0);
+    }
+
+    fn next_key(&self, key: *const u8, next_key: *mut u8) -> SysResult {
+        // ????
+        Err(EINVAL)
+    }
+
+    fn get_attr(&self) -> InternalMapAttr {
+        self.attr
+    }
+
+    fn lookup_helper(&self, key: *const u8) -> SysResult {
+        let hashcode = HashMap::hash(key, self.attr.key_size);
+        Ok(hashcode as usize)
     }
 }
 
