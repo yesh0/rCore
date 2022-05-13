@@ -1,8 +1,12 @@
+use crate::memory;
 use crate::sync::SpinLock as Mutex;
 use crate::syscall::{SysError::*, SysResult};
+use alloc::alloc::alloc;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use rlibc::memcmp;
 use core::marker::PhantomData;
+use core::{mem, slice};
 use core::ptr::null;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
@@ -63,6 +67,12 @@ struct MapValue {
     marker: PhantomData<&'static [u8]>, // how to handle this?
 }
 
+#[derive(Clone, Copy)]
+struct MapKey {
+    pub ptr: *const u8,
+    marker: PhantomData<&'static [u8]>,
+}
+
 fn null_map_value() -> MapValue {
     MapValue {
         ptr: null(),
@@ -83,7 +93,7 @@ struct ArrayMap {
 
 struct HashMap {
     attr: InternalMapAttr,
-    map: BTreeMap<HashType, MapValue>,
+    map: BTreeMap<HashType, Vec<(MapKey, MapValue)>>,
 }
 
 impl ArrayMap {
@@ -97,6 +107,36 @@ impl ArrayMap {
     fn get_element_addr(&self, index: usize) -> usize {
         let offset = self.attr.value_size * index;
         self.storage.as_ptr() as usize + offset
+    }
+}
+
+impl HashMap {
+    fn new(attr: InternalMapAttr) -> Self {
+        let map = BTreeMap::new();
+        Self { attr, map }
+    }
+
+    fn hash(kptr: *const u8, ksize: usize) -> u32 {
+        let seed: u32 = 131313;
+        let hash: u32 = 0;
+        for i in unsafe { slice::from_raw_parts(kptr, uszie) } {
+            hash = hash * seed + i;
+        }
+        return hash;
+    }
+
+    fn find_opt(&self, kptr: *const u8)  -> Option<&MapValue> {
+        let hashcode = HashMap::hash(kptr, self.attr.key_size);
+        if let Some(kvlist) = self.map.get(&hashcode) {
+            for kv in kvlist {
+                if unsafe { memcmp(kv.0.ptr, kptr, self.attr.key_size) } == 0 {
+                    return Some(&kv.1);
+                }
+            }
+            return None;
+        } else {
+            return None;
+        }
     }
 }
 
@@ -158,6 +198,78 @@ impl BpfMap for ArrayMap {
         }
 
         Ok(self.get_element_addr(index))
+    }
+}
+
+impl BpfMap for HashMap {
+    fn lookup(&self, key: *const u8, value: *mut u8) -> SysResult {
+        if let Some(mv) = self.find_opt(key) {
+            copy(value, mv.ptr, self.attr.value_size);
+            Ok(0)
+        } else {
+            Err(ENOENT)
+        }
+    }
+
+    fn update(&mut self, key: *const u8, value: *const u8, flags: u64) -> SysResult {
+        // handle different flags, only 1 flags could be given
+
+        // check flags
+        if !(flags == BPF_ANY || flags == BPF_EXIST || flags == BPF_NOEXIST) {
+            return Err(EINVAL);
+        }
+        
+        // handle different cases
+        if let Some(v) = self.find_opt(key) {
+            match flags {
+                BPF_ANY | BPF_EXIST => {
+                    copy(v.ptr, value, self.attr.value_size);
+                    return Ok(0);
+                },
+                _ => return Err(EEXIST) // existed entry
+            }
+        } else {
+            match flags {
+                BPF_ANY | BPF_NOEXIST => {
+                    // create one, copy key and value into kernel space
+                    todo!()
+                },
+                _ => return Err(ENOENT)
+            }
+        }
+    }
+
+    fn delete(&mut self, key: *const u8) -> SysResult {
+        let hashcode = HashMap::hash(key, self.attr.key_size);
+        if let Some(kvlist) = self.map.get_mut(&hashcode) {
+            for i in 0..kvlist.len() {
+                let kv = &kvlist[i];
+                if unsafe { memcmp(kv.0.ptr, key, self.attr.key_size) } == 0 {
+                    kvlist.remove(i);
+                    return Ok(0);
+                }
+            }
+            Err(ENOENT)
+        } else {
+            Err(ENOENT)
+        }
+    }
+
+    fn next_key(&self, key: *const u8, next_key: *mut u8) -> SysResult {
+        // ????
+        todo!() 
+    }
+
+    fn get_attr(&self) -> InternalMapAttr {
+        self.attr
+    }
+
+    fn lookup_helper(&self, key: *const u8) -> SysResult {
+        if let Some(v) = self.find_opt(key) {
+            Ok(unsafe { &v as usize })
+        } else {
+            Err(ENOENT)
+        }
     }
 }
 

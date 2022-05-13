@@ -27,3 +27,8 @@ pub const R_BPF_64_ABS64: u32 = 2;
 pub const R_BPF_64_ABS32: u32 = 3;
 pub const R_BPF_64_NODYLD32: u32 = 4;
 pub const R_BPF_64_32: u32 = 10;
+
+pub const BPF_ANY: u64 = 0;
+pub const BPF_NOEXIST: u64 = 1;
+pub const BPF_EXIST: U64 = 2;
+pub const BPF_F_LOCK: u64 = 4;
