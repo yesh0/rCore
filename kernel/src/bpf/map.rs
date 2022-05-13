@@ -1,6 +1,7 @@
 use crate::memory;
 use crate::sync::SpinLock as Mutex;
 use crate::syscall::{SysError::*, SysResult};
+use alloc::alloc::alloc;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use rlibc::memcmp;
@@ -211,10 +212,31 @@ impl BpfMap for HashMap {
     }
 
     fn update(&mut self, key: *const u8, value: *const u8, flags: u64) -> SysResult {
-        if let Some(mv) = self.find_opt(key) {
-            copy(mv.ptr as *mut u8, value, self.attr.value_size);
+        // handle different flags, only 1 flags could be given
+
+        // check flags
+        if !(flags == BPF_ANY || flags == BPF_EXIST || flags == BPF_NOEXIST) {
+            return Err(EINVAL);
         }
-        Ok(0)
+        
+        // handle different cases
+        if let Some(v) = self.find_opt(key) {
+            match flags {
+                BPF_ANY | BPF_EXIST => {
+                    copy(v.ptr, value, self.attr.value_size);
+                    return Ok(0);
+                },
+                _ => return Err(EEXIST) // existed entry
+            }
+        } else {
+            match flags {
+                BPF_ANY | BPF_NOEXIST => {
+                    // create one, copy key and value into kernel space
+                    todo!()
+                },
+                _ => return Err(ENOENT)
+            }
+        }
     }
 
     fn delete(&mut self, key: *const u8) -> SysResult {
@@ -235,7 +257,7 @@ impl BpfMap for HashMap {
 
     fn next_key(&self, key: *const u8, next_key: *mut u8) -> SysResult {
         // ????
-        Err(EINVAL)
+        todo!() 
     }
 
     fn get_attr(&self) -> InternalMapAttr {
@@ -243,8 +265,11 @@ impl BpfMap for HashMap {
     }
 
     fn lookup_helper(&self, key: *const u8) -> SysResult {
-        let hashcode = HashMap::hash(key, self.attr.key_size);
-        Ok(hashcode as usize)
+        if let Some(v) = self.find_opt(key) {
+            Ok(unsafe { &v as usize })
+        } else {
+            Err(ENOENT)
+        }
     }
 }
 
