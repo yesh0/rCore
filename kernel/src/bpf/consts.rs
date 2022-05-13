@@ -30,5 +30,5 @@ pub const R_BPF_64_32: u32 = 10;
 
 pub const BPF_ANY: u64 = 0;
 pub const BPF_NOEXIST: u64 = 1;
-pub const BPF_EXIST: U64 = 2;
+pub const BPF_EXIST: u64 = 2;
 pub const BPF_F_LOCK: u64 = 4;

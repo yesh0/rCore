@@ -1,4 +1,5 @@
-use crate::{syscall::SysResult, trap::uptime_msec};
+use crate::process::current_thread;
+use crate::syscall::SysResult;
 use core::ptr::{null, null_mut};
 
 use super::{
@@ -32,7 +33,6 @@ pub static HELPER_FN_TABLE: [BpfHelperFn; HELPER_FN_COUNT] = [
 // WARNING: be careful to use bpf_probe_read, bpf_get_current_pid_tgid & bpf_get_current_comm
 // in syscall contexts. obtaining current process information may cause deadlock!
 
-// NOTE: all Err variants are transformed into -1 to distinguish from a valid pointer
 fn convert_result(result: SysResult) -> i64 {
     match result {
         Ok(val) => val as i64,
@@ -47,7 +47,11 @@ fn bpf_nop(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
 // void *bpf_map_lookup_elem(struct bpf_map *map, const void *key)
 fn bpf_map_lookup_elem(map_fd: u64, key: u64, _1: u64, _2: u64, _3: u64) -> i64 {
     let res = bpf_map_lookup_helper(map_fd as u32, key as *const u8);
-    convert_result(res)
+    // all Err variants are converted into 0 (NULL pointer)
+    match res {
+        Ok(val) => val as i64,
+        Err(_) => 0,
+    } 
 }
 
 // long bpf_map_update_elem(struct bpf_map *map, const void *key, const void *value, u64 flags)
@@ -93,7 +97,7 @@ fn bpf_probe_read(dst: u64, size: u64, src: u64, _1: u64, _2: u64) -> i64 {
 // u64 bpf_ktime_get_ns(void)
 // return current ktime
 fn bpf_ktime_get_ns(_1: u64, _2: u64, _3: u64, _4: u64, _5: u64) -> i64 {
-    return (uptime_msec() * 1000000) as i64
+    crate::arch::timer::timer_now().as_nanos() as i64
 }
 
 // long bpf_trace_printk(const char *fmt, u32 fmt_size, ...)
