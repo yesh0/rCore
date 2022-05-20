@@ -20,5 +20,6 @@
   "executables": true,
   "dynamic-linking": true,
   "panic-strategy": "abort",
-  "relocation-model": "static"
+  "relocation-model": "static",
+  "eliminate-frame-pointer": false
 }

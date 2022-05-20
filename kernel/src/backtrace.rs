@@ -56,6 +56,37 @@ pub fn lr() -> usize {
     ptr
 }
 
+use alloc::vec::Vec;
+use alloc::string::String;
+fn find_symbol(symbols: &Vec<(String, usize)>, pc: usize) -> Option<(&str, usize)> {
+    let mut l: usize = 0;
+    let mut r: usize = symbols.len();
+    while l < r {
+        let m = l + (r - l) / 2;
+        if symbols[m].1 <= pc {
+            l = m + 1;
+        } else {
+            r = m;
+        }
+    }
+    if r == 0 {
+        return None;
+    }
+    // try to find demangled names (which are shorter)
+    l = r - 1;
+    let mut min_len = symbols[l].0.len(); 
+    let mut i = l;
+    while l > 0 && symbols[l].1 == symbols[l - 1].1 {
+        l = l - 1;
+        if min_len > symbols[l].0.len() {
+            min_len = symbols[l].0.len();
+            i = l;
+        }
+    }
+    let entry = &symbols[i];
+    Some((&entry.0, pc - entry.1))
+}
+
 // Print the backtrace starting from the caller
 pub fn backtrace() {
     unsafe {
@@ -96,6 +127,17 @@ pub fn backtrace() {
                     );
                 }
             }
+
+            crate::lkm::manager::ModuleManager::with(|mm| {
+                let ksymbols = mm.get_kernel_symbols();
+                if let Some((name, offset)) = find_symbol(ksymbols, current_pc) {
+                    print!("    {}", name);
+                    if offset != 0 {
+                        print!(" +{:#x}", offset);
+                    }
+                    println!("");
+                }
+            });
 
             stack_num = stack_num + 1;
             #[cfg(riscv)]

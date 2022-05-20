@@ -30,6 +30,7 @@ global_asm!(include_str!("symbol_table.asm"));
 pub struct ModuleManager {
     stub_symbols: BTreeMap<String, ModuleSymbol>,
     loaded_modules: Vec<Box<LoadedModule>>,
+    kernel_symbols: Vec<(String, usize)>,
 }
 
 lazy_static! {
@@ -104,15 +105,23 @@ impl ModuleManager {
             let mut words = l.split_whitespace();
             let address = words.next().unwrap();
             let _stype = words.next().unwrap();
-            let name = words.next().unwrap();
+            // Current compiler is too old and it don't have SplitWhitespace::as_str
+            // We have to use some workaround
+            // let name = words.as_str();
+            let remaining: Vec<_> = words.collect();
+            let name: &str = &remaining.join(" ");
             // Simply add the symbol into stub.
+            let addr = usize::from_str_radix(address, 16).unwrap();
             self.stub_symbols.insert(
                 String::from(name),
                 ModuleSymbol {
                     name: String::from(name),
-                    loc: usize::from_str_radix(address, 16).unwrap(),
+                    loc: addr,
                 },
             );
+
+            // Extra kernel symbols. (sorted by addresses)
+            self.kernel_symbols.push((String::from(name), addr));
         }
     }
     pub fn resolve_symbol(&self, symbol: &str) -> Option<usize> {
@@ -606,11 +615,15 @@ impl ModuleManager {
         let mut kmm = ModuleManager {
             stub_symbols: ModuleManager::init_stub_symbols(),
             loaded_modules: Vec::new(),
+            kernel_symbols: Vec::new(),
         };
         kmm.load_kernel_symbols_from_elf();
 
         //let lkmm: Mutex<Option<ModuleManager>>=Mutex::new(None);
         LKM_MANAGER.lock().replace(kmm);
         info!("[LKM] Loadable Kernel Module Manager loaded!");
+    }
+    pub fn get_kernel_symbols(&self) -> &Vec<(String, usize)> {
+        return &self.kernel_symbols;
     }
 }
