@@ -689,7 +689,7 @@ dependencies = [
 [[package]]
 name = "riscv-decode"
 version = "0.2.0"
-source = "git+https://github.com/latte-c/riscv-decode?rev=6d239b7#6d239b7689ddd5a3db4dd640261b4eb90725c127"
+source = "git+https://github.com/latte-c/riscv-decode?rev=bc8da4e#bc8da4e1763a0179ecdab3301892c306b605d377"
 
 [[package]]
 name = "riscv-target"

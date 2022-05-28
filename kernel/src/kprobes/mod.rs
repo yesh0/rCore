@@ -1,5 +1,6 @@
 pub mod kprobes;
 pub mod kretprobes;
+pub mod trace;
 
 use alloc::sync::Arc;
 use kprobes::{Handler, HandlerFn};

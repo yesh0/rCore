@@ -90,7 +90,7 @@ uart_16550 = "0.2.7"
 x86_64 = "0.11"
 
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
-riscv-decode = { git = "https://github.com/latte-c/riscv-decode", rev = "6d239b7" }
+riscv-decode = { git = "https://github.com/latte-c/riscv-decode", rev = "bc8da4e" }
 riscv = { git = "https://github.com/rcore-riscv-hypervisor-dev/riscv" , rev = "d14f1c0", features = ["inline-asm"] }
 ebpf2rv = { git = "https://github.com/latte-c/ebpf2rv", rev = "50a7de5" }
 

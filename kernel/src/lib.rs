@@ -82,7 +82,10 @@ pub mod kprobes;
 
 pub fn kmain() -> ! {
     // kprobes::kprobes::run_kprobes_tests();
-    kprobes::kretprobes::run_kretprobes_test();
+    // kprobes::kretprobes::run_kretprobes_test();
+    if arch::cpu::id() == 0 {
+        kprobes::trace::run_dynamic_trace_test();
+    }
 
     loop {
         executor::run_until_idle();
