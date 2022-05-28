@@ -1,7 +1,9 @@
 use crate::sync::SpinLock as Mutex;
+use crate::syscall::{SysResult, SysError};
 use alloc::collections::btree_map::BTreeMap;
 use alloc::sync::Arc;
 use lazy_static::*;
+use crate::num::FromPrimitive;
 
 use super::arch::{
     alloc_breakpoint, free_breakpoint, get_trapframe_pc, get_trapframe_ra, set_trapframe_pc,
@@ -161,6 +163,24 @@ fn test_exit_handler(tf: &mut TrapFrame, _data: usize) -> isize {
     0
 }
 
+#[inline(never)]
+fn test_sysresult(i : i32) -> SysResult {
+    if i >= 10 {
+        Ok(i as usize)
+    } else {
+        Err(SysError::from_i32(i).unwrap())
+    }
+}
+
+fn test_sysresult_handler(tf: &mut TrapFrame, _data:usize) -> isize {
+    let sysresult = kretprobe_recover_sysresult(tf);
+    match sysresult {
+        Some(sys) => warn!("[SysResult] Got {:?}", sys),
+        None => warn!("[SysResult] Failed to parse from a0")
+    }
+    0
+}
+
 pub fn run_kretprobes_test() {
     let args = KRetProbeArgs {
         exit_handler: Arc::new(test_exit_handler),
@@ -170,4 +190,29 @@ pub fn run_kretprobes_test() {
     };
     register_kretprobe(recursive_fn as usize, args);
     recursive_fn(1);
+
+    let sysresult_args = KRetProbeArgs {
+        exit_handler: Arc::new(test_sysresult_handler),
+        entry_handler : None,
+        limit: None,
+        user_data: 0,
+    };
+    register_kretprobe(test_sysresult as usize, sysresult_args);
+    let _ = test_sysresult(4);
+}
+
+pub fn kretprobe_recover_sysresult(tf: &TrapFrame) -> Option<SysResult> {
+    // recover sysresult from trapfram
+    let general_ret_addr = tf.general.a0 as usize;
+    let enum_flag_addr = general_ret_addr as *const u8;
+    let enum_flag = unsafe { *enum_flag_addr };
+    if enum_flag == 0 {
+        let usize_flag = unsafe { *((general_ret_addr + 8) as *const usize) };
+        Some(Ok(usize_flag))
+    } else if enum_flag == 1 {
+        let syserror_flag = unsafe { *((general_ret_addr + 8) as *const SysError) };
+        Some(Err(syserror_flag))
+    } else {
+        None
+    }
 }

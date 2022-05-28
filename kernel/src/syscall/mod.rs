@@ -586,7 +586,7 @@ pub type SysResult = Result<usize, SysError>;
 
 #[allow(dead_code)]
 #[repr(isize)]
-#[derive(Debug, FromPrimitive)]
+#[derive(Debug, FromPrimitive, Copy, Clone)]
 pub enum SysError {
     EUNDEF = 0,
     EPERM = 1,
@@ -753,4 +753,9 @@ pub fn check_and_clone_cstr_array(user: *const *const u8) -> Result<Vec<String>,
         }
         Ok(buffer)
     }
+}
+
+pub fn test_sysresult(a : *mut i32) -> SysResult {
+    unsafe { *a = 2; }
+    return Err(SysError::ENOENT);
 }
