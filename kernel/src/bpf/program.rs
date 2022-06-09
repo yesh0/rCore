@@ -37,12 +37,12 @@ pub struct BpfProgram {
 
 impl BpfProgram {
     // TODO: run with context
-    pub fn run(&self) -> i64 {
+    pub fn run(&self, ctx: *const u8) -> i64 {
         if let Some(compiled_code) = &self.jited_prog {
             let result = unsafe {
-                type JitedFn = unsafe fn() -> i64;
+                type JitedFn = unsafe fn(*const u8) -> i64;
                 let f = core::mem::transmute::<*const u32, JitedFn>(compiled_code.as_ptr());
-                f()
+                f(ctx)
             };
             return result;
         }
