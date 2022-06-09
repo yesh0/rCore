@@ -67,3 +67,21 @@ pub enum BpfObject {
 ## 代码链接
 
 [kernel/src/bpf/mod.rs](../../src/bpf/mod.rs)
+
+## `bpf(2)`
+
+该部分记录了bpf系统调用的相关说明。
+
+### `fn sys_bpf(&self, cmd: usize, attr_ptr: usize, _size: usize) -> SysResult`
+
+其中`cmd`对应于BPF系统调用的子命令，`attr_ptr`用于提供子命令的相关属性。接下来针对不同子命令进行相关说明。
+
+* `BPF_MAP_CREATE`
+    * 创建一个BPF Map，提供的属性为`MapAttr`，通过调用`bpf_map_create`实现。
+* `BPF_MAP_****_ELEM`
+    * 对BPF Map中的元素进行操作。具体可以是`LOOKUP`，`UPDATE`，`DELETE`或者`GET_NEXT_KEY`。通过调用自身的`handle_map_ops`实现，最终转发给`bpf_map_ops`。
+* `BPF_PROG_ATTACH`
+    * 将BPF程序挂载到内核追踪点上。提供的属性为`AttachTarget`结构体，通过调用`bpf_program_attach`实现。
+* `BPF_PROG_LOAD_EX`
+    * 加载ELF BPF程序，提供的属性为`ProgramLoadExAttr`，通过调用`bpf_program_load_ex`实现。
+* 其他：返回`SysError:EINVAL`。
