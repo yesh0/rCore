@@ -48,30 +48,54 @@ lazy_static! {
         Mutex::new(BTreeMap::new());
 }
 
-fn run_attached_programs(tracepoint: &Tracepoint) {
+fn run_attached_programs(tracepoint: &Tracepoint, ctx: *const u8) {
     let map = ATTACHED_PROGS.lock();
     let programs = map.get(tracepoint).unwrap();
     for program in programs {
-        let _result = program.run();
+        let _result = program.run(ctx);
         // error!("run result: {}", result);
+    }
+}
+
+#[repr(C)]
+struct KProbeBPFContext {
+    ptype: usize,
+    paddr: usize,
+    tf: TrapFrame,
+}
+
+impl KProbeBPFContext {
+    pub fn new(tf: &mut TrapFrame, probed_addr: usize, t: usize) -> Self {
+        KProbeBPFContext {
+            ptype: t,
+            paddr: probed_addr,
+            tf: tf.clone()
+        }
+    }
+
+    pub fn as_ptr(&self) -> *const u8 {
+        unsafe { core::mem::transmute(self) }
     }
 }
 
 fn kprobe_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
     let tracepoint = Tracepoint::new(KProbe, probed_addr);
-    run_attached_programs(&tracepoint);
+    let ctx = KProbeBPFContext::new(_tf, probed_addr, 0);
+    run_attached_programs(&tracepoint, ctx.as_ptr());
     0
 }
 
 fn kretprobe_entry_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
     let tracepoint = Tracepoint::new(KRetProbeEntry, probed_addr);
-    run_attached_programs(&tracepoint);
+    let ctx = KProbeBPFContext::new(_tf, probed_addr, 1);
+    run_attached_programs(&tracepoint, ctx.as_ptr());
     0
 }
 
 fn kretprobe_exit_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
     let tracepoint = Tracepoint::new(KRetProbeExit, probed_addr);
-    run_attached_programs(&tracepoint);
+    let ctx = KProbeBPFContext::new(_tf, probed_addr, 2);
+    run_attached_programs(&tracepoint, ctx.as_ptr());
     0
 }
 

@@ -107,7 +107,7 @@ impl HashMap {
         let seed: HashCode = 131313;
         let mut hash: HashCode = 0;
         for &i in unsafe { slice::from_raw_parts(kptr, ksize) } {
-            hash = hash * seed + i as HashCode;
+            hash = hash.wrapping_mul(seed).wrapping_add(i as HashCode);
         }
         hash
     }
