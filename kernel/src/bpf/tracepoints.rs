@@ -65,7 +65,7 @@ struct KProbeBPFContext {
 }
 
 impl KProbeBPFContext {
-    pub fn new(tf: &mut TrapFrame, probed_addr: usize, t: usize) -> Self {
+    pub fn new(tf: &TrapFrame, probed_addr: usize, t: usize) -> Self {
         KProbeBPFContext {
             ptype: t,
             paddr: probed_addr,
@@ -78,23 +78,23 @@ impl KProbeBPFContext {
     }
 }
 
-fn kprobe_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
+fn kprobe_handler(tf: &mut TrapFrame, probed_addr: usize) -> isize {
     let tracepoint = Tracepoint::new(KProbe, probed_addr);
-    let ctx = KProbeBPFContext::new(_tf, probed_addr, 0);
+    let ctx = KProbeBPFContext::new(tf, probed_addr, 0);
     run_attached_programs(&tracepoint, ctx.as_ptr());
     0
 }
 
-fn kretprobe_entry_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
+fn kretprobe_entry_handler(tf: &mut TrapFrame, probed_addr: usize) -> isize {
     let tracepoint = Tracepoint::new(KRetProbeEntry, probed_addr);
-    let ctx = KProbeBPFContext::new(_tf, probed_addr, 1);
+    let ctx = KProbeBPFContext::new(tf, probed_addr, 1);
     run_attached_programs(&tracepoint, ctx.as_ptr());
     0
 }
 
-fn kretprobe_exit_handler(_tf: &mut TrapFrame, probed_addr: usize) -> isize {
+fn kretprobe_exit_handler(tf: &mut TrapFrame, probed_addr: usize) -> isize {
     let tracepoint = Tracepoint::new(KRetProbeExit, probed_addr);
-    let ctx = KProbeBPFContext::new(_tf, probed_addr, 2);
+    let ctx = KProbeBPFContext::new(tf, probed_addr, 2);
     run_attached_programs(&tracepoint, ctx.as_ptr());
     0
 }
