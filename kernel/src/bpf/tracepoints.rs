@@ -61,12 +61,7 @@ fn run_attached_programs(tracepoint: &Tracepoint, ctx: *const u8) {
 struct KProbeBPFContext {
     ptype: usize,
     paddr: usize,
-    a0: usize,
-    a1: usize,
-    a2: usize,
-    a3: usize,
-    a4: usize,
-    a5: usize
+    tf: TrapFrame,
 }
 
 impl KProbeBPFContext {
@@ -74,12 +69,7 @@ impl KProbeBPFContext {
         KProbeBPFContext {
             ptype: t,
             paddr: probed_addr,
-            a0: tf.general.a0,
-            a1: tf.general.a1,
-            a2: tf.general.a2,
-            a3: tf.general.a3,
-            a4: tf.general.a4,
-            a5: tf.general.a5
+            tf: tf.clone()
         }
     }
 
