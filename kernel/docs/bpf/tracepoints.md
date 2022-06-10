@@ -1,6 +1,6 @@
 # BPF内核追踪交互模块
 
-本模块为BPF模块提供了和`kprobe`，`kretprobe`进行交互的功能，能够将BPF程序挂载到目标的程序上。
+本模块为BPF模块提供了和`kprobe`，`kretprobe`进行交互的功能，能够将BPF程序挂载到目标追踪点上。
 
 ## 定义
 
