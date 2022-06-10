@@ -51,7 +51,7 @@ fn bpf_map_lookup_elem(map_fd: u64, key: u64, _1: u64, _2: u64, _3: u64) -> i64 
     match res {
         Ok(val) => val as i64,
         Err(_) => 0,
-    } 
+    }
 }
 
 // long bpf_map_update_elem(struct bpf_map *map, const void *key, const void *value, u64 flags)
@@ -81,7 +81,7 @@ fn bpf_map_delete_elem(map_fd: u64, key: u64, _1: u64, _2: u64, _3: u64) -> i64 
 fn probe_read_user(dst: *mut u8, src: *const u8, len: usize) -> SysResult {
     let thread = current_thread().unwrap();
     let vm = thread.vm.lock();
-    let src_slice = unsafe { vm.check_read_array(src , len)? };
+    let src_slice = unsafe { vm.check_read_array(src, len)? };
     let dst_slice = unsafe { core::slice::from_raw_parts_mut(dst, len) };
     dst_slice.copy_from_slice(src_slice);
     Ok(0)
@@ -90,7 +90,11 @@ fn probe_read_user(dst: *mut u8, src: *const u8, len: usize) -> SysResult {
 // TODO: probe read in kernel address space
 // long bpf_probe_read(void *dst, u32 size, const void *unsafe_ptr)
 fn bpf_probe_read(dst: u64, size: u64, src: u64, _1: u64, _2: u64) -> i64 {
-    let res = probe_read_user(dst as usize as *mut u8, src as usize as *const u8, size as usize);
+    let res = probe_read_user(
+        dst as usize as *mut u8,
+        src as usize as *const u8,
+        size as usize,
+    );
     convert_result(res)
 }
 

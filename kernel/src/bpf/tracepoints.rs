@@ -7,7 +7,10 @@ use trapframe::TrapFrame;
 use crate::kprobes::{register_kprobe, register_kretprobe, KProbeArgs, KRetProbeArgs};
 use crate::lkm::manager::ModuleManager;
 use crate::sync::SpinLock as Mutex;
-use crate::syscall::{SysError::{self, *}, SysResult};
+use crate::syscall::{
+    SysError::{self, *},
+    SysResult,
+};
 
 use super::{BpfObject::*, *};
 
@@ -36,10 +39,7 @@ pub struct Tracepoint {
 
 impl Tracepoint {
     pub fn new(tp_type: TracepointType, token: usize) -> Self {
-        Self {
-            tp_type,
-            token,
-        }
+        Self { tp_type, token }
     }
 }
 
@@ -139,7 +139,7 @@ pub fn bpf_program_attach(target: &str, prog_fd: u32) -> SysResult {
                     user_data: addr,
                 };
                 let _ = register_kretprobe(addr, args).ok_or(EINVAL)?;
-                
+
                 let dual_tp: Tracepoint;
                 if tp_type == KRetProbeEntry {
                     dual_tp = Tracepoint::new(KRetProbeExit, addr);

@@ -4,13 +4,13 @@ use crate::syscall::{SysError::*, SysResult};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use rlibc::memcmp;
-use core::{mem, slice};
 use core::ptr::null;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
+use core::{mem, slice};
+use rlibc::memcmp;
 
-use super::*;
 use super::consts::*;
+use super::*;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -96,7 +96,11 @@ impl ArrayMap {
 impl HashMap {
     fn new(attr: InternalMapAttr) -> Self {
         let map = BTreeMap::new();
-        Self { attr, map, total_elems: 0 }
+        Self {
+            attr,
+            map,
+            total_elems: 0,
+        }
     }
 
     fn hash(kptr: *const u8, ksize: usize) -> HashCode {
@@ -308,7 +312,7 @@ impl BpfMap for HashMap {
                     Err(ENOENT)
                 }
             }
-            None => get_first_key()
+            None => get_first_key(),
         }
     }
 
