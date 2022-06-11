@@ -87,15 +87,24 @@ fn probe_read_user(dst: *mut u8, src: *const u8, len: usize) -> SysResult {
     Ok(0)
 }
 
-// TODO: probe read in kernel address space
 // long bpf_probe_read(void *dst, u32 size, const void *unsafe_ptr)
 fn bpf_probe_read(dst: u64, size: u64, src: u64, _1: u64, _2: u64) -> i64 {
-    let res = probe_read_user(
-        dst as usize as *mut u8,
-        src as usize as *const u8,
-        size as usize,
-    );
-    convert_result(res)
+    let src_addr = src as usize;
+    let dst_addr = dst as usize;
+    let len = size as usize;
+
+    use crate::arch::consts::KERNEL_OFFSET;
+    if src_addr >= KERNEL_OFFSET {
+        // this is probably a kernel address
+        // WARNING: this may cause kernel crash!
+        let src_slice = unsafe { core::slice::from_raw_parts(src_addr as *const u8, len) };
+        let dst_slice = unsafe { core::slice::from_raw_parts_mut(dst_addr as *mut u8, len) };
+        dst_slice.copy_from_slice(src_slice);
+        0
+    } else {
+        let res = probe_read_user(dst_addr as *mut u8, src_addr as *const u8, len);
+        convert_result(res)
+    }
 }
 
 // u64 bpf_ktime_get_ns(void)
