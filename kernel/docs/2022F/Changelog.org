@@ -1,0 +1,83 @@
+#+title: 更新日志
+
+* 尝试把之前同学 eBPF 的代码跑起来
+从 [2022-10-02 Sun] 到 [2022-10-03 Mon]，还没成功。
+
+#+begin_quote
+虽然还没有决定是要尝试 eBPF 方向还是 swap 那边，所以先把复现一下再说。
+但是前面同学实现的 backtrace 还挺方便的，所以无论是 swap 还是进一步加强 eBPF 应该都会基于这个分支。
+#+end_quote
+
+下面直接把 commit message 复制过来了：
+
+    Bumped dependency versions to get things compiled
+    
+    * Updated rust-toolchain
+    * Bumped dependency versions
+      - trapframe
+      - buddy_system_allocator
+      - executor
+      - isomorphic_drivers
+      - riscv (previous versions causing page faults)
+    * Blindly removed some features
+      - nll
+      - untagged_unions
+      - optin_builtin_traits
+      - global_asm
+      - alloc_prelude
+      - const_fn
+      - const_in_array_repeat_expressions
+    * Modified Makefile, no idea if done correctly
+    * Replaced llvm_asm! with asm! (for RISC-V only)
+    * Removed read_user_fixup, no idea what is it for
+
+因为想用 ~asm!~ 取代 ~llvm_asm!~ 所以把整个依赖以及 toolchain 胡乱升级了一遍。
+最后到了 shell 出现提示符，但是不能输入内容，现在还在顺着 async 链来找是哪出了问题。
+
+** debug 笔记
+
+尝试跑起来的时候被一个上游库的 bug 卡了好久，但也因此稍微熟悉了一下 debug 的流程。
+
+*** 流程
+
+工具无非就是 GDB 以及 QEMU，但是课程上并没有太讲 QEMU Console 的使用。如果想要更随心所欲地查看虚拟机状态，那么可以尝试一下 QEMU Console，按 =Ctrl+X C= 进入。
+Makefile 的 debug 里 QEMU 是后台运行的，没法直接进入 Console，需要多打几个命令。（另外调用的似乎是 x86_64 的 GDB，所以反汇编全是错的。）
+
+#+begin_src console
+  $ cd kernel
+  $ # 在一个终端输入：
+  $ make build justdebug ARCH=riscv64 LOG=debug SMP=1
+  $ # 另开一个终端：
+  $ RUST_GDB=riscv64-unknown-elf-gdb rust-gdb target/riscv64/release/rcore -x ../tools/gdbinit
+#+end_src
+
+Console 的几个常用命令：
+
+- ~info mem~ :: 页表！一览无余。
+- ~info registers~ :: Privileged 的各种寄存器都有。
+- ~log item1[,item2[,...]]~ :: 开启某样日志，或用 ~log none~ 关闭。
+  可以与 GDB 配合获取某一段执行期间的详尽日志。（不然真的看不过来。）
+- ~xp /8xg 0x03fff000~ :: 例如查看 0x3fff000 此处物理地址的内容。
+  前面的 =/8xg= 里的 =g= 指以 =u64= 为输出单位， =8= 表示输出 8 个单位， =x= 十六进制。
+
+*** 上游的一个 bug
+
+是 [[https://github.com/rcore-os/riscv/]] 的一个小 bug，已经提了 [[https://github.com/rcore-os/riscv/pull/8][PR]]。
+基本上就是页表的非根节点的 A/D 位必须为 0，但是库里为了兼容 U540 把所有有效页表项的 A/D 位硬性写成 1 了，本来这件事应该是操作系统来选择而不是由库来干的。
+
+大概只在 QEMU 7.0 或以上版本出现，因为之前版本很宽松而没有检查这一点。
+
+#+begin_quote
+Debug 流程挺痛苦的，又有谁能想得到呢……基本上是：
+1. QEMU Console ~info mem~ 发现页表完完全全正确。
+2. ~log mmu~ 打印日志，最后没办法了，顺着日志找到 QEMU 源代码实现页表查找的代码。
+3. 看了几遍，不好找。假设是最近引入的问题，用 =git blame= 找到一个几个月前引入这个检查的 commit。
+4. 回去 ~info registers~ 看 =satp= ，找根页表逐级找下去发现 A/D 位是 1。
+5. 接下来只要找到对应代码就可以了。
+
+题外话：硬件不支持实时设置 A/D 位就会 page fault 这一点应该是给操作系统软件补全留出空间。说不定当时的同学调 U540 板也痛苦了好久……
+#+end_quote
+
+* 尝试跑起来（其二）：输入问题
+
+
