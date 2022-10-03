@@ -6,6 +6,7 @@ use crate::process::current_thread;
 use crate::sync::SpinNoIrqLock;
 use bitmap_allocator::BitAlloc;
 use buddy_system_allocator::Heap;
+use core::alloc::Layout;
 use core::mem;
 use core::mem::size_of;
 use log::*;
@@ -164,7 +165,7 @@ pub fn init_heap() {
     }
 }
 
-pub fn enlarge_heap(heap: &mut Heap) {
+pub fn enlarge_heap(heap: &mut Heap<32>, _: &Layout) {
     info!("Enlarging heap to avoid oom");
 
     let mut addrs = [(0, 0); 32];
@@ -195,11 +196,6 @@ pub fn enlarge_heap(heap: &mut Heap) {
 /// Check whether the address range [addr, addr + len) is not in kernel space
 pub fn access_ok(addr: usize, len: usize) -> bool {
     addr < PHYSICAL_MEMORY_OFFSET && (addr + len) < PHYSICAL_MEMORY_OFFSET
-}
-
-#[naked]
-pub unsafe extern "C" fn read_user_fixup() -> usize {
-    return 1;
 }
 
 pub fn copy_from_user<T>(addr: *const T) -> Option<T> {

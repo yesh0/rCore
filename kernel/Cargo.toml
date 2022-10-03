@@ -49,11 +49,11 @@ bitflags = "1.2"
 bitmap-allocator = { git = "https://github.com/rcore-os/bitmap-allocator", rev = "03bd9909" }
 bitvec = { version = "0.17", default-features = false, features = ["alloc"] }
 bit_field = "0.10"
-buddy_system_allocator = "0.4.0"
+buddy_system_allocator = { version = "0.8.0", features = ["const_fn"] }
 compression = { version = "0.1.4", default-features = false, features = ["gzip"] }
 device_tree = { git = "https://github.com/rcore-os/device_tree-rs", rev = "eee2c23" }
-executor = { git = "https://github.com/rcore-os/executor.git", rev = "a2d02ee9" }
-isomorphic_drivers = { git = "https://github.com/rcore-os/isomorphic_drivers", rev = "fcf694d2", features = ["log"] }
+executor = { git = "https://github.com/rcore-os/executor.git", rev = "85b9335a6ba4a6032d618b9b65a8f0d4fa7da6f7" }
+isomorphic_drivers = { git = "https://github.com/rcore-os/isomorphic_drivers", rev = "f7cd97a867057142f06de7f254accf7960514a79", features = ["log"] }
 lazy_static = { version = "1.4", features = ["spin_no_std"] }
 log = "0.4"
 naive-timer = { git = "https://github.com/rcore-os/naive-timer.git", rev = "d0cfe04" }
@@ -72,7 +72,7 @@ rcore-fs-devfs = { git = "https://github.com/rcore-os/rcore-fs", rev = "517af47"
 rlibc = "1.0"
 smoltcp = { git = "https://github.com/rcore-os/smoltcp", rev = "5bd87c7c", default-features = false, features = ["alloc", "log", "ethernet", "proto-ipv4", "proto-igmp", "socket-icmp", "socket-udp", "socket-tcp", "socket-raw"] }
 spin = "0.5"
-trapframe = { git = "https://github.com/rcore-os/trapframe-rs", rev = "bdfe5aa" }
+trapframe = { git = "https://github.com/rcore-os/trapframe-rs", rev = "0f27d58f5a13ae08cf5293ab0999cd12878950e1" }
 virtio-drivers = { git = "https://github.com/rcore-riscv-hypervisor-dev/virtio-drivers", rev = "1201a0b" }
 volatile = "0.2"
 woke = "0.0.2"
@@ -91,7 +91,7 @@ x86_64 = "0.11"
 
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
 riscv-decode = { git = "https://github.com/latte-c/riscv-decode", rev = "bc8da4e" }
-riscv = { git = "https://github.com/rcore-riscv-hypervisor-dev/riscv" , rev = "d14f1c0", features = ["inline-asm"] }
+riscv = { git = "https://github.com/yesh0/riscv", rev = "9eebb5c202b04832f01858536aeb8a1e3c5eccf6" }
 ebpf2rv = { git = "https://github.com/latte-c/ebpf2rv", rev = "50a7de5" }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]

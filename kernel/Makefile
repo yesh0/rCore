@@ -146,7 +146,7 @@ qemu_opts += \
 else
 qemu_opts += \
 	-machine virt \
-	-cpu rv64,x-h=true \
+	-cpu rv64 \
 	-m 2G \
 	-serial mon:stdio
 ifeq ($(UART2), on)
@@ -333,9 +333,6 @@ kernel: $(DTB)
 	@echo Building $(ARCH) kernel
 ifeq ($(ARCH), $(filter $(ARCH), riscv32 riscv64))
 	@cp src/arch/riscv/board/u540/linker.ld src/arch/riscv/boot/linker64.ld
-	@-patch -p0 -N -b \
-		$(sysroot)/lib/rustlib/src/rust/src/libcore/sync/atomic.rs \
-		src/arch/riscv/atomic.patch
 else ifeq ($(ARCH), mipsel)
 	@for file in entry ; do \
 	    $(hostcc) -Dboard_$(BOARD) -E src/arch/$(ARCH)/boot/$${file}.S -o src/arch/$(ARCH)/boot/$${file}.gen.s ; \

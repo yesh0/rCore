@@ -99,7 +99,8 @@ fn page_fault(stval: usize, sepc: &mut usize, access: AccessType) {
     }
     if *sepc >= _copy_user_start as usize && *sepc < _copy_user_end as usize {
         info!("fixup for addr {:x?}", addr);
-        *sepc = crate::memory::read_user_fixup as usize;
+        *sepc = 1usize;
+        // todo!();
         return;
     }
     error!("unhandled page fault {:#x} from {:#x}, type: {:?}", addr, sepc, access);

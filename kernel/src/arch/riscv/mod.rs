@@ -105,6 +105,7 @@ const BOOT_HART_ID: usize = 0;
 #[cfg(feature = "board_u540")]
 const BOOT_HART_ID: usize = 1;
 
+use core::arch::global_asm;
 #[cfg(target_arch = "riscv32")]
 global_asm!(include_str!("boot/entry32.asm"));
 #[cfg(target_arch = "riscv64")]

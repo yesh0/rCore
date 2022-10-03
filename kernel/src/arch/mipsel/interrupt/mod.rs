@@ -268,7 +268,8 @@ fn page_fault(tf: &mut TrapFrame) {
                     }
                     if tf.epc >= _copy_user_start as usize && tf.epc < _copy_user_end as usize {
                         debug!("fixup for addr {:x?}", addr);
-                        tf.epc = crate::memory::read_user_fixup as usize;
+                        tf.epc = 1usize;
+                        // todo!();
                         return;
                     }
                     //crate::trap::error(tf);
@@ -285,7 +286,8 @@ fn page_fault(tf: &mut TrapFrame) {
                 }
                 if tf.epc >= _copy_user_start as usize && tf.epc < _copy_user_end as usize {
                     debug!("fixup for addr {:x?}", addr);
-                    tf.epc = crate::memory::read_user_fixup as usize;
+                    tf.epc = 1usize;
+                    // todo!();
                     return;
                 }
                 //crate::trap::error(tf);

@@ -312,6 +312,7 @@ impl Process {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SockAddrIn {
     pub sin_family: u16,
     pub sin_port: u16,
@@ -320,12 +321,14 @@ pub struct SockAddrIn {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SockAddrUn {
     pub sun_family: u16,
     pub sun_path: [u8; 108],
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SockAddrLl {
     pub sll_family: u16,
     pub sll_protocol: u16,
@@ -337,6 +340,7 @@ pub struct SockAddrLl {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SockAddrNl {
     nl_family: u16,
     nl_pad: u16,
@@ -355,6 +359,7 @@ pub union SockAddr {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SockAddrPlaceholder {
     pub family: u16,
     pub data: [u8; 14],

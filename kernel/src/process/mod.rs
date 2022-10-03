@@ -33,7 +33,8 @@ pub fn init() {
     info!("process: init end");
 }
 
-static mut PROCESSORS: [Option<Arc<Thread>>; MAX_CPU_NUM] = [None; MAX_CPU_NUM];
+const PROCESSOR_INIT: Option<Arc<Thread>> = None;
+static mut PROCESSORS: [Option<Arc<Thread>>; MAX_CPU_NUM] = [PROCESSOR_INIT; MAX_CPU_NUM];
 
 /// Get current thread
 ///

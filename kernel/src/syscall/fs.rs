@@ -411,7 +411,7 @@ impl Syscall<'_> {
                             ));
                         }
                         FileLike::Socket(_socket) => {
-                            &(*crate::drivers::SOCKET_ACTIVITY).register_epoll_list(
+                            let _ = &(*crate::drivers::SOCKET_ACTIVITY).register_epoll_list(
                                 self.thread.proc.clone(),
                                 0,
                                 //thread::current().id(),

@@ -11,6 +11,7 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::string::*;
 use alloc::sync::Arc;
 use alloc::vec::*;
+use core::arch::global_asm;
 use core::mem::transmute;
 use lazy_static::lazy_static;
 use rcore_memory::memory_set::MemoryAttr;

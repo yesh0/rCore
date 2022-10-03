@@ -1,5 +1,6 @@
 //! Provide backtrace upon panic
 use core::mem::size_of;
+use core::arch::asm;
 
 extern "C" {
     fn stext();
@@ -12,20 +13,21 @@ pub fn fp() -> usize {
     let ptr: usize;
     #[cfg(target_arch = "aarch64")]
     unsafe {
-        llvm_asm!("mov $0, x29" : "=r"(ptr));
+        asm!("mov {}, x29" : out(reg) ptr);
     }
     #[cfg(riscv)]
     unsafe {
-        llvm_asm!("mv $0, s0" : "=r"(ptr));
+        asm!("mv {}, s0", out(reg) ptr);
     }
     #[cfg(target_arch = "x86_64")]
     unsafe {
-        llvm_asm!("mov %rbp, $0" : "=r"(ptr));
+        asm!("mov {}, rbp", out(reg) ptr);
     }
     #[cfg(any(target_arch = "mips"))]
     unsafe {
         // read $sp
-        llvm_asm!("ori $0, $$29, 0" : "=r"(ptr));
+        // llvm_asm!("ori $0, $$29, 0" : "=r"(ptr));
+        todo!();
     }
 
     ptr
@@ -37,20 +39,21 @@ pub fn lr() -> usize {
     let ptr: usize;
     #[cfg(target_arch = "aarch64")]
     unsafe {
-        llvm_asm!("mov $0, x30" : "=r"(ptr));
+        asm!("mov {}, x30", out(reg) ptr);
     }
     #[cfg(riscv)]
     unsafe {
-        llvm_asm!("mv $0, ra" : "=r"(ptr));
+        asm!("mv {}, ra", out(reg) ptr);
     }
     #[cfg(target_arch = "x86_64")]
     unsafe {
-        llvm_asm!("movq 8(%rbp), $0" : "=r"(ptr));
+        asm!("movq {}, 8(rbp)", out(reg) ptr);
     }
 
     #[cfg(target_arch = "mips")]
     unsafe {
-        llvm_asm!("ori $0, $$31, 0" : "=r"(ptr));
+        // llvm_asm!("ori $0, $$31, 0" : "=r"(ptr));
+        todo!();
     }
 
     ptr

@@ -138,7 +138,8 @@ fn page_fault(tf: &mut TrapFrame) {
     }
     if tf.rip >= _copy_user_start as usize && tf.rip < _copy_user_end as usize {
         debug!("fixup for addr {:x?}", addr);
-        tf.rip = crate::memory::read_user_fixup as usize;
+        tf.rip = 1usize;
+        // todo!();
         return;
     }
 

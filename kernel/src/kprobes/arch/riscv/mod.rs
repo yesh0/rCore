@@ -1,3 +1,4 @@
+use core::arch::{asm, global_asm};
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 use riscv_decode::{CompressedInstruction::*, Instruction::*, *};
 use trapframe::TrapFrame;
@@ -61,7 +62,7 @@ impl Drop for InstructionBuffer {
 // arch related helper functions
 pub fn invalidate_icache() {
     unsafe {
-        llvm_asm!("fence.i");
+        asm!("fence.i");
     }
 }
 
