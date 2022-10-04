@@ -34,6 +34,22 @@
 因为想用 ~asm!~ 取代 ~llvm_asm!~ 所以把整个依赖以及 toolchain 胡乱升级了一遍。
 最后到了 shell 出现提示符，但是不能输入内容，现在还在顺着 async 链来找是哪出了问题。
 
+另外看到同学[[https://zhuanlan.zhihu.com/p/137733625][下一代 Rust OS：zCore 正式发布 - 知乎]]的文章，里面说：
+
+#+begin_quote
+对于 Rust，Fuchsia 官方上个月发布的一份语言政策（知乎上也有所讨论）中明确表示，不会将 Rust 用于编写内核，原因是内核要使用工业级别的稳定技术：
+
+    Rust is approved for use throughout the Fuchsia Platform Source Tree, with the following exceptions:
+    * kernel. The Zircon kernel is built using a restricted set of technologies that have established industry track records of being used in production operating systems.
+
+而我们希望通过 zCore 的实践表明：Rust 是适合编写内核级代码的，并且比 C/C++ 更能胜任这一任务。
+#+end_quote
+
+只能说，nighty 它的名字就意味着不可能是“工业级别稳定”。
+从现在人人都用 nightly 版本的状况来看，要跟上 Rust 的版本更新本身就是一个非常大的维护开销。
+这种东西也不是说自己项目管理做好了就可以的，而是你想要更新你必须确保你所用的所有库都可以顺利更新。
+谷歌不知道，rCore 的依赖库有多少 fork 过来的现在都抛荒了都。
+
 ** debug 笔记
 
 尝试跑起来的时候被一个上游库的 bug 卡了好久，但也因此稍微熟悉了一下 debug 的流程。
@@ -75,9 +91,37 @@ Debug 流程挺痛苦的，又有谁能想得到呢……基本上是：
 4. 回去 ~info registers~ 看 =satp= ，找根页表逐级找下去发现 A/D 位是 1。
 5. 接下来只要找到对应代码就可以了。
 
-题外话：硬件不支持实时设置 A/D 位就会 page fault 这一点应该是给操作系统软件补全留出空间。说不定当时的同学调 U540 板也痛苦了好久……
+题外话：
+我这里是因为设置了 A/D 而 page fault，但是其实 U540 没有设置 A/D 位也会报错这一点也在标准里写了：
+硬件不支持实时设置 A/D 位就会 page fault。这一点应该是给操作系统软件补全留出空间。说不定当时的同学调 U540 板也痛苦了好久……
 #+end_quote
 
 * 尝试跑起来（其二）：输入问题
+[2022-10-04 Tue]
+
+** Async 的调用“栈”
+
+大概看起来的流程是 ppoll -> poll -> 先挂起，等中断传过来之后通过哪里的 bus 用对应的 waker 唤起携程来执行。
+
+但是……目前看起来 UART 完全没有中断传过来，因为没有其它外设中断，所以也不知道只是 UART 有问题还是怎样。
+跑去看了 =mie= 寄存器，没问题。
+跑去用 ~xp /1xb 0x1000000N~ 看了一下 UART 寄存器的内容，没问题。（ 似乎 QEMU 只支持一字节一字节地看。）
+
+** PLIC 根本没有初始化
+
+回去看[[https://learningos.github.io/rCore-Tutorial-Book-v3/chapter9/2device-driver-1.html][外设平台与串口驱动程序 - rCore-Tutorial-Book-v3 3.6.0-alpha.1 文档]]，发现原来还有一个 PLIC，
+然后打点发现 PLIC 初始化代码压根没有运行……
+最后发现是 =compatible= 属性原来应该是当作一个字符串列表来处理的，但是代码里把它当作整一个字符串了……
+
+去看了一下 device tree 规范，从最开始的 v0.1 =compatible= 就是 =stringlist= 类型……
+顺便看了一下 QEMU，这次是 6.1 版本开始就会有的问题，由[[https://github.com/qemu/qemu/commit/60bb5407f02b9d7cf7078ff339cbae961b7e98cc][这个 commit]] 引进。
+
+#+begin_quote
+Property name: compatible
+Value type: <stringlist>
+#+end_quote
+
+rCore 文档里也认为它是个字符串……为了不误导太多人总之去给提了个 PR。 +和硬件打交道想当然而不看规范那真机跑出问题不是当然的吗……+
+好了，大致问题消除，可以开始想后面做什么了。
 
 
