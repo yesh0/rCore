@@ -209,7 +209,7 @@ dependencies = [
 [[package]]
 name = "device_tree"
 version = "1.0.3"
-source = "git+https://github.com/rcore-os/device_tree-rs?rev=eee2c23#eee2c23d50a2cdacb7777429d71e00691b361978"
+source = "git+https://github.com/rcore-os/device_tree-rs?rev=2f2e55fb5238466747fef49d9ce0f59b2e808154#2f2e55fb5238466747fef49d9ce0f59b2e808154"
 
 [[package]]
 name = "dyn-fmt"

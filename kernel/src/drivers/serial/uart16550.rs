@@ -40,55 +40,68 @@ impl Driver for SerialPort {
 }
 
 impl SerialPort {
-    fn new(base: usize, shift: usize) -> SerialPort {
+    fn new(base: usize, shift: usize, frequency: usize) -> SerialPort {
         let mut res = SerialPort {
-            base: 0,
+            base,
             multiplier: 1 << shift,
         };
-        res.init(base);
+        res.init(frequency);
         res
     }
 
-    pub fn init(&mut self, base: usize) {
-        self.base = base;
-        // Turn off the FIFO
-        write(self.base + COM_FCR * self.multiplier, 0 as u8);
-        // Set speed; requires DLAB latch
-        write(self.base + COM_LCR * self.multiplier, COM_LCR_DLAB);
-        //write(self.base + COM_DLL * self.multiplier, (115200 / 9600) as u8);
-        //write(self.base + COM_DLM * self.multiplier, 0 as u8);
-
-        // 8 data bits, 1 stop bit, parity off; turn off DLAB latch
-        write(
-            self.base + COM_LCR * self.multiplier,
-            COM_LCR_WLEN8 & !COM_LCR_DLAB,
-        );
-
-        // No modem controls
-        write(self.base + COM_MCR * self.multiplier, 0 as u8);
-        // Enable rcv interrupts
-        write(self.base + COM_IER * self.multiplier, COM_IER_RDI);
+    fn write(&self, register: usize, value: u8) {
+        write(self.base + register * self.multiplier, value)
     }
 
-    /// non-blocking version of putchar()
+    fn read(&self, register: usize) -> u8 {
+        read::<u8>(self.base + register * self.multiplier)
+    }
+
+    fn compute_divisors(baud_rate: usize, frequency: usize) -> [u8; 2] {
+        // frequency / 16 -> max baud rate
+        let divisor = (frequency / 16 / baud_rate) as u16;
+        [(divisor & 0xFF) as u8, (divisor >> 8) as u8]
+    }
+
+    pub fn init(&mut self, frequency: usize) {
+        // Turn off interrupts
+        self.write(COM_IER, 0);
+        // Set speed; requires DLAB latch
+        self.write(COM_LCR, COM_LCR_DLAB);
+
+        let divisors = SerialPort::compute_divisors(9600, frequency);
+        self.write(COM_DLL, divisors[0]);
+        self.write(COM_DLM, divisors[1]);
+
+        // 8 data bits, 1 stop bit, parity off; turn off DLAB latch
+        self.write(COM_LCR, COM_LCR_WLEN8 & !COM_LCR_DLAB);
+
+        // No modem controls
+        self.write(COM_MCR, 0);
+        // Disable FIFO
+        self.write(COM_FCR, 0);
+        // Enable rcv interrupts
+        self.write(COM_IER, COM_IER_RDI);
+    }
+
+    /// blocking version of putchar()
     pub fn putchar(&self, c: u8) {
         for _ in 0..100 {
-            if (read::<u8>(self.base + COM_LSR * self.multiplier) & COM_LSR_TXRDY) == COM_LSR_TXRDY
-            {
+            if (self.read(COM_LSR) & COM_LSR_TXRDY) == COM_LSR_TXRDY {
                 break;
             }
         }
-        write(self.base + COM_TX * self.multiplier, c);
+        self.write(COM_TX, c);
     }
 
     /// blocking version of getchar()
     pub fn getchar(&mut self) -> u8 {
         loop {
-            if (read::<u8>(self.base + COM_LSR * self.multiplier) & COM_LSR_DATA) == 0 {
+            if (self.read(COM_LSR) & COM_LSR_DATA) != 0 {
                 break;
             }
         }
-        let c = read::<u8>(self.base + COM_RX * self.multiplier);
+        let c = self.read(COM_RX);
         match c {
             255 => b'\0', // null
             c => c,
@@ -97,9 +110,9 @@ impl SerialPort {
 
     /// non-blocking version of getchar()
     pub fn getchar_option(&self) -> Option<u8> {
-        match read::<u8>(self.base + COM_LSR * self.multiplier) & COM_LSR_DATA {
+        match self.read(COM_LSR) & COM_LSR_DATA {
             0 => None,
-            _ => Some(read::<u8>(self.base + COM_RX * self.multiplier) as u8),
+            _ => Some(self.read(COM_RX)),
         }
     }
 }
@@ -142,9 +155,10 @@ const COM_LSR_TSRE: u8 = 0x40; // Transmitter off
 pub fn init_dt(dt: &Node) {
     let addr = dt.prop_usize("reg").unwrap();
     let shift = dt.prop_u32("reg-shift").unwrap_or(0) as usize;
+    let frequency = dt.prop_u32("clock-frequency").unwrap_or(0x384000) as usize;
     let base = phys_to_virt(addr);
-    info!("Init uart16550 at {:#x}", base);
-    let com = Arc::new(SerialPort::new(base, shift));
+    info!("Init uart16550 at {:#x}, phys at {:#x}, shift {:#x}, freq {}", base, addr, shift, frequency);
+    let com = Arc::new(SerialPort::new(base, shift, frequency));
     let mut found = false;
     let irq_opt = dt.prop_u32("interrupts").ok().map(|irq| irq as usize);
     DRIVERS.write().push(com.clone());

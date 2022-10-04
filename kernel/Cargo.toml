@@ -51,7 +51,8 @@ bitvec = { version = "0.17", default-features = false, features = ["alloc"] }
 bit_field = "0.10"
 buddy_system_allocator = { version = "0.8.0", features = ["const_fn"] }
 compression = { version = "0.1.4", default-features = false, features = ["gzip"] }
-device_tree = { git = "https://github.com/rcore-os/device_tree-rs", rev = "eee2c23" }
+device_tree = { git = "https://github.com/rcore-os/device_tree-rs", rev = "2f2e55fb5238466747fef49d9ce0f59b2e808154" }
+dyn-fmt = { version = "0.3.0", default-features = false }
 executor = { git = "https://github.com/rcore-os/executor.git", rev = "85b9335a6ba4a6032d618b9b65a8f0d4fa7da6f7" }
 isomorphic_drivers = { git = "https://github.com/rcore-os/isomorphic_drivers", rev = "f7cd97a867057142f06de7f254accf7960514a79", features = ["log"] }
 lazy_static = { version = "1.4", features = ["spin_no_std"] }
@@ -70,6 +71,7 @@ rcore-fs-ramfs = { git = "https://github.com/rcore-os/rcore-fs", rev = "517af47"
 rcore-fs-mountfs = { git = "https://github.com/rcore-os/rcore-fs", rev = "517af47" }
 rcore-fs-devfs = { git = "https://github.com/rcore-os/rcore-fs", rev = "517af47" }
 rlibc = "1.0"
+rvm = { git = "https://github.com/rcore-riscv-hypervisor-dev/RVM", rev = "2867e78", optional = true }
 smoltcp = { git = "https://github.com/rcore-os/smoltcp", rev = "5bd87c7c", default-features = false, features = ["alloc", "log", "ethernet", "proto-ipv4", "proto-igmp", "socket-icmp", "socket-udp", "socket-tcp", "socket-raw"] }
 spin = "0.5"
 trapframe = { git = "https://github.com/rcore-os/trapframe-rs", rev = "0f27d58f5a13ae08cf5293ab0999cd12878950e1" }
@@ -77,8 +79,6 @@ virtio-drivers = { git = "https://github.com/rcore-riscv-hypervisor-dev/virtio-d
 volatile = "0.2"
 woke = "0.0.2"
 xmas-elf = "0.7"
-rvm = { git = "https://github.com/rcore-riscv-hypervisor-dev/RVM", rev = "2867e78", optional = true }
-dyn-fmt = { version = "0.3.0", default-features = false }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 apic = { git = "https://github.com/rcore-os/apic-rs", rev = "fb86bd7" }

@@ -20,11 +20,16 @@ lazy_static! {
 }
 
 fn walk_dt_node(dt: &Node, intc_only: bool) {
-    if let Ok(compatible) = dt.prop_str("compatible") {
+    if let Ok(compatible) = dt.prop_str_list("compatible") {
         if dt.has_prop("interrupt-controller") == intc_only {
             let registry = DEVICE_TREE_REGISTRY.read();
-            if let Some(f) = registry.get(compatible) {
+            if let Some(Some(f)) = compatible.iter()
+                .map(|id| registry.get(id))
+                .find(|o| o.is_some())
+            {
                 f(dt);
+            } else {
+                warn!("Unrecognized device: {}", dt.name);
             }
         }
     }
