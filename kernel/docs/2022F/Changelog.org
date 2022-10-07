@@ -124,4 +124,83 @@ Value type: <stringlist>
 rCore 文档里也认为它是个字符串……为了不误导太多人总之去给提了个 PR。 +和硬件打交道想当然而不看规范那真机跑出问题不是当然的吗……+
 好了，大致问题消除，可以开始想后面做什么了。
 
+* eBPF Verifier
+大概 [2022-10-05 Wed] 开始？
 
+去看了相关的一些文章，内核代码 15k 行没敢去看……
+
+- 指令集：
+  - [[https://docs.kernel.org/bpf/instruction-set.html][eBPF Instruction Set - The Linux Kernel documentation]]
+  - [[https://github.com/iovisor/bpf-docs/blob/master/eBPF.md][Unofficial eBPF spec - iovisor/bpf-docs]]
+    这个和上面的有些不符……例如 =0x87= 的 =NEG= 指令。
+  - [[https://www.kernel.org/doc/Documentation/networking/filter.txt][Linux Socket Filtering aka Berkeley Packet Filter (BPF)]]
+    这个大概是（除了直接看代码之外）最官方的？
+    还没开始看，可以从 /BPF kernel internals/ 这一节看。
+- Verifier：
+  感想是这真的是我能写的吗……
+  - [[https://docs.kernel.org/bpf/verifier.html][eBPF verifier - The Linux Kernel documentation]]
+    大概把要检查的东西以及检查逻辑说了一遍。
+  - [[https://lwn.net/Articles/794934/][Bounded loops in BPF for the 5.3 kernel]]
+    令人头大。摘两个点：
+    - State pruning
+    - 对寄存器/栈里的值的逻辑推断。
+
+其它一些现有的用户态的实现似乎都不太验证程序，毕竟用户态嘛……
+
++要不咱们不验证了吧？+
+
+** 进度
+
+*** DONE 验证单个指令的正确性
+
+- 简便起见，禁止使用旧的 BPF 的指令。
+- 规范里说指令里未使用的域 *应* 置零，我们这里强制 *必须* 置零。
+- 原子操作的数据长度是 32 位或 64 位。至于真正的支持那留给 JIT 了。
+- 寄存器，R10 是只读的，其它十个可读可写。
+
+*** DONE 简单的结构检查
+
+- 不允许不可达的代码。但是 ~if 0~ 或者更复杂的逻辑上不可达的我们没法判断。
+- 不允许越界的跳转，例如跳到代码块外，跳到指令中间（128 位的宽指令）或是跳到当前指令。
+- 不允许 open-ended 的代码块，也就是一个代码块最后要不是跳转走，要不必须 BPF_EXIT 返回。
+
+*** TODO 复杂的状态枚举检查
+
+- [ ] 值的推断信息记录、更新、合并
+  - [ ] 指针
+  - [ ] 整型
+- [ ] 实现一个推断使用的 VM
+- ...
+
+**** 一些检查要点
+
+- 值可以是这些类型：
+  - 未初始化：完全不能使用，只能被覆盖。
+  - 指针：不同允许进行的操作不同，要储存已知以及推断信息。
+  - 整型：要储存推断信息，例如每一位的可能状态以及大小范围等等（要检查溢出）。
+
+- 要检查 callee saved 寄存器是不是被还原了。
+- 对操作/每一个调用函数都需要知道它们对参数类型需求并检查。
+- 循环不允许深度太大。
+
+**** 一些思路
+
+- +思路一：放弃。+
+- 思路二：
+  - 和解释器对照着写，感觉上还是挺相像的，毕竟验证也需要知道每一步的具体语义以及副作用等等。做梦的话能用不同的 trait 实现来让解释器直接变成验证器就最好了。
+  - 在之前分块的基础上，记录下每一个代码块需要访问/修改的值。这样大概可以在分支的时候做点分支合并的工作。
+  - 另外可能还有一个省事的思路，就是在 JIT 的时候插检查指令，例如给循环记个数什么的。
+  - 最后的思路就是把“太复杂”的程序全部拒掉（
+
+*** TODO 测试、文档、开源
+
+遥遥遥遥无期。
+
+** 看的一些其它内容
+
+- [[https://lwn.net/Articles/645169/][bpf: introduce bpf_tail_call() helper]]
+  现在对 eBPF 可以做的东西还没有一个概念。
+  看起来现在 Linux 是可以把不同的函数放在一个 ELF 的不同段里然后调用？
+  但是这要怎么检查相互调用……（尾递归优化就先不要想了吧。）
+- [[https://docs.kernel.org/bpf/btf.html][BPF Type Format (BTF) - The Linux Kernel documentation]]
+  Debug 信息，例如 verifier 可以给出更详细的出错信息。
