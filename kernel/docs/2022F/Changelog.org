@@ -216,3 +216,73 @@ rCore 文档里也认为它是个字符串……为了不误导太多人总之�
 
   但我们还是摸 Linux 石头过河吧……
 
+** eBPF 官方文档整理
+
+来源 [[https://www.kernel.org/doc/Documentation/networking/filter.txt][Linux Socket Filtering aka Berkeley Packet Filter (BPF)]]
+
+1. 建议 32 位机器直接用解释器，不然 64 位寄存器各种映射起来太麻烦了。
+2. 目前支持的函数调用参数个数最多五个。
+3. 好消息：只有 87 条指令；坏消息：似乎文档里暂时没说每条指令具体是什么。
+4. 因为它说指令是尽量符合一般架构指令的（如 x86_64），所以我猜其中的 *某一些* 32 位指令会把上半清零（
+   - mov 清
+   - or 不清
+   - 绝望
+5. 哈哈哈没有详细 spec 的样子呢，去看解释器源码了。
+6. 还有一种可能就是这些都是未定义行为，verifier 应该检查出来，但 interpretter 随你怎么样。
+
+*** 阅读 Linux 解释器
+
+可能还是直接看代码方便一点……总之位置是在 kernel/bpf/core.c 里的 =___bpf_prog_run= 函数。
+
+**** Rust 实现：分支跳转表
+
++里面用了挺多宏的，用 Rust 的宏大概还能进一步简化。+ 别做梦了不能。
++但是不清楚 Rust 的 ~match~ 内部会不会优化成跳转表。+ 用 godbolt 看了一下是会优化的，那就放心用了。还剩下的就是各种常量导入。
+之前同学的 ebpf2rv 没写许可证，所以还是到现有的开源项目那边复制常量过来了。
+
+看源码会清晰一点，而且也有一些关于未定义行为的提示。
+
+**** Rust 实现：宏
+
+Rust 和 C 的宏……不能说一模一样，只能说毫无关系。
+Linux 里这部分的宏不过百来行，我现在写 Rust 的 procedural macro 已经快五百行了……还要学好几个第三方库……
+（因为 Rust 的普通宏目前为止是不能在 match 的分支上使用的，有的时候反而是字符串替换更灵活简单一些。）
+（顺便手动实现了个疑似 ~#ifdef~ 的东西……）
+
+**** Rust 实现：泛型
+
+现在想做的解释器会有大概几个泛型类型：
+- =Value= :: 应与 =u64= 直接兼容，但是也可以通过实现 =Add=, =Sub= 等 trait 换用其它可以跟踪值并进行安全检查的类型替代。
+  - 这样应该 verifier 就可以直接用解释器来进行逻辑分析了，当然 =Value= trait 还是要重新实现一遍。
+- =Vm<Value>= :: 储存寄存器以及栈对应的值的接口。
+
+**** Rust 实现：许可证问题
+
+基本是对照着 Linux 里的实现来的，原本觉得如果抄得太过火了可能有 GPL 问题，但最后代码基本毫无关系了 thanks to Rust。
+
+**** 一些 Spec
+
+发现有些地方理解出了问题，总之这里记录一下。
+
+- 离谱其一：
+  文档是这样的：
+  #+begin_quote
+  - the wide instruction encoding, which appends a second 64-bit immediate value (imm64) after the basic instruction for a total of 128 bits.
+
+  ...
+
+  Instructions with the BPF_IMM mode modifier use the wide instruction encoding for an extra imm64 value.
+  #+end_quote
+  代码是这样的：
+  #+begin_src rust
+  	DST = (u64) (u32) insn[0].imm | ((u64) (u32) insn[1].imm) << 32;
+  #+end_src
+  也许是我理解出问题了但怎么想不应该是 ~insn[1]~ 整个是个 imm64 吗？
+
+- 其二： =BPF_NEG= 的确是取负的一元操作符，和 =src= 无关，但是文档：
+  #+begin_quote
+  BPF_NEG    0x80    dst = ~src
+  #+end_quote
+  +开始怀疑 docs.kernel.org 到底是不是官方的文档……+
+  有人去改一个吗（
+
