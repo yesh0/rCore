@@ -230,3 +230,24 @@
 - [[https://fuweid.com/post/2022-ebpf-loader/][eBPF Loader]]： =libbpf= 以及些微 =BPF_PSEUDO_CALL= 描述
 - [[https://blog.csdn.net/hjkfcz/article/details/104916719][ebpf原理分析]]：有对 =bpf_check= 的介绍
 
+* 总结一下
+
+原来以为 eBPF 是单函数的，但是现在看来明显不是这样。但禁用了递归之后的处理大概还算简单？
+剩下就是读 =do_check= 里各种处理的代码了……万来行的 =verifier.c= 现在还剩万来行。
+
+另外，eBPF 的 relocation 涉及几处，现在的 Linux 下分别由用户态和内核态分开处理不同的部分：
+- eBPF 函数之间的调用等的与 ELF 相关的 relocation 由用户态处理。
+- 内核处理的永远只是 eBPF 字节码（可能附加一些 BTF 信息，也可能没有）。
+  这时 relocation 信息只能直接写在字节码里，而这方面的文档好像并不是很多……
+  最直接的方法还是直接看 =resolve_pseudo_ldimm64= 这个函数看看到底是要怎么 relocate 各种东西。
+之前的同学看起来是直接把 ELF 给读进来了，作弊不好啊（
+
+然后 Linux 这方面的文档，就是 LLVM 知 Linux 知天不知地不知或者只是我不知是吧……
+
+最后就是 verifier 的逻辑可能与解释器类似，但是与 helper 函数的逻辑密切相关。例如：
+- 分配了资源的 helper 函数，我们必须保证资源的释放，verifier 需要保证不释放会报错。
+- 获取自旋锁的 helper 函数，获取后，Linux 禁止在获取锁的期间进行大部分函数调用。
+- 定时回调的 helper 函数，或者是其它的需要回调的函数。
+  我们需要从提供给 helper 函数的参数中推测参数类型，从而得知某一个是函数指针。
+  （这一点有可能需要在 =do_check= 之前，在验证函数递归之前就进行？）
+所以这方面的代码可以想象到是没法写得很“干净”的。而如果 verifier 没有设计好，可能到时加入新的 helper 的时候会加得很痛苦。
