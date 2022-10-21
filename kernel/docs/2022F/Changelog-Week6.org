@@ -4,9 +4,20 @@
 
 * 本周计划
 
-** TODO 找到之前同学实现的 eBPF 解释器
+** DONE 找到之前同学实现的 eBPF 解释器
+
+[[https://github.com/NickCao/ebpf-rs][Interpreter 在这里]]
+
+看起来也还是没有处理 BPF_PSEUDO_CALL 以及原子操作等等。另外因为 =u64= 等等的数据位数写死了也比较难在此基础上修改，所以还是重写吧。
+
+[[https://github.com/NickCao/ebpf-verifier-rs/][Verifier 在这里]]
+
+用的应该是 [[https://github.com/vbpf/ebpf-verifier]] 这个库，桥接到了 Rust。
+最大问题是 C++ 要在内核里跑基本不可能。而这个库根据之前的了解也和 Linux 算法不同。
 
 ** TODO 继续实现验证器的整形校验部分
+
+这边暂停，先读完 Linux 代码再说……
 
 *** TODO 实现基于不等式图的溢出校验
 
@@ -15,4 +26,207 @@
 *** TODO 实现验证器中的整型数值接口
 
 ** TODO 阅读 Linux 验证器源码
+
+*** 数据结构
+
+先看头文件 [[https://github.com/torvalds/linux/blob/master/include/linux/bpf_verifier.h][include/linux/bpf_verifier.h]]。
+
+里面定义了几个数据结构：
+- =bpf_reg_liveness= :: 看起来是每一个分支里对寄存器的操作汇总。
+  例如无操作、有写入、有读取等。读取位只反映对分支前面数据的需求，在分支内写入之后再读取不被认为“有读取”。
+  =REG_LIVE_DONE= 的话可能需要读一读代码才能知道什么意思。
+  #+begin_quote
+  See =mark_reg_read()= and =mark_stack_slot_read()= in =kernel/bpf/verifier.c=.
+  #+end_quote
+- =bpf_reg_state= :: 记录了寄存器的类型以及状态：
+  - 指针偏移量的固定部分
+  - 一个匿名 =union= ：
+    * =PTR_TO_PACKET= 类型：范围
+    * Map 相关指针：对应的 map 的 id 以及指向 map 的指针
+    * =PTR_TO_BTF_ID= 类型：（这是什么类型？）
+    * 指向内存区域的指针：区域大小
+    * =dynptr= 类型： +（这又是什么类型？）+ 好像是今年刚加的……要用一些 helper 来操作，允许更加灵活的指针使用
+    * =PTR_TO_FUNC= ：函数指针类型
+  - 一个 id：用来跟踪资源的释放以及关联的值等
+  - 一个资源 id：因为 Linux 有转换指针类型的 helper 函数，所以我们要记住转换之后对应的原本的资源是哪个，
+    也可以说是指针指向资源之间有依赖关系吧
+  - 下面是整型类型值跟踪的记录，因为 Linux 可以允许把指针当整型用，所以这些每个值都有：
+    * 位图记录：一个位信息，一个 mask
+    * =u64/i64/u32/i32= 的最大最小可能值记录
+  - =liveness= 链表
+  - =frameno= ：同是帧指针，但是不同函数的 =R10= 帧指针是不同的，以此来区别
+  - =precise= ：应该是记录是否需要精确值，用来减少计算
+  - =subreg_def= ：不知道是什么，查到一大堆 CVE……
+- =bpf_stack_slot_type= :: 栈帧上的数据类型
+- =bpf_stack_state= :: 栈帧数据
+- =bpf_reference_state= :: 被引用的数据表征，基本就是个 id 而已，但是 Linux eBPF 调用可以回调？
+- =bpf_func_state= :: 当前函数状态
+  - 寄存器
+  - 被调用位置
+  - 栈帧序号
+  - 指向 =subprog_info= 的下标
+  - 回调函数？回调嵌套检测？回调返回位置范围？
+  - 对应的栈以及资源记录
+  - 锁的状态，例如持有锁的时候不能进行耗时的（例如函数调用操作）
+- =bpf_verifier_state= :: 验证器验证某一段程序时的状态以及 DFS 和跳转的一些记录
+- =bpf_insn_aux_data= :: 如名称所示，每一条指令的一些附加的辅助信息
+- =bpf_verifier_env= :: 验证器的状态
+
+*** 代码
+
+代码主要在 [[https://github.com/torvalds/linux/blob/master/kernel/bpf/verifier.c][kernel/bpf/verifier.c]] 里。
+
+文件开头就是一大段独立于函数的注释，大致如下：
+
+#+begin_quote
+=bpf_check()= 是一个静态代码分析器。
+
+第一 pass 先做 DFS，看程序是否是一个有序无环图。下列程序不会被通过：
+- 指令数大于 =BPF_MAXINSNS=
+- 有环（其实 5.3 之后似乎是允许环的，不知道是不是注释有意/无意没有更新）
+- 存在不可达代码（从函数级别来说的）
+- Jump 指令越界或是不合法（我猜是跳到 128-bit 指令的中间）
+
+第二 pass，遍历每一个分支每一种可能的执行路径。有下列限制：
+- 每一条路径的指令上限是 64k 条
+- 分析的分支数被限制在 1k 个
+
+寄存器：
+- 都是 64 位的
+- =R0= :: 返回值寄存器
+- =R1-R5= :: 函数传参寄存器
+- =R6-R9= :: 被调用者保存寄存器
+- =R10= :: 只读帧指针
+  - 我看到网上有些地方把这个称作栈指针，但是 =R10= 对每一个函数都分别会指向不同的区域，所以帧指针更恰当（frame pointer）。
+
+每个寄存器其当前对应的值都有对应的类型。
+- 函数开始时 =R1= 指向一个 =bpf_context= ，类型为 =PTR_TO_CTX= 。
+- 指令会复制/改变寄存器值的类型，也可能对值的类型有某种要求。
+- 例如，对指针的加减算术操作会复制指针的类型，并把算术对应的偏移量记录下来。
+- =SCALAR_VALUE= 类型不能用作指针。指针加指针的结果就可能变为 =SCALAR_VALUE= 。（但我倾向于直接不允许指针之间的加法操作，减法可以。）
+- 对指针目标的存读操作要求基地址寄存器是一个指针，可以是下列类型：
+  - =PTR_TO_MAP_VALUE=, =PTR_TO_CTX=, =PTR_TO_STACK=, =PTR_TO_SOCKET=
+  - 这些类型会被 =check_mem_access()= 检查。
+- 调用函数时，指针类型会被检查，返回值也会把 =R0= 赋值为对应类型，此后 =R1-R5= 会被设置为“没有初始化的值”类型。
+- 有些 nullable 的值，在经过 ~if (v != 0) ...~ 的检查后会被变为不为空的值。
+- 有些值与资源绑定，在被分配之后程序必须检查是否为空，并在不为空的时候最后释放资源。
+  - 这种指针每一个在内部都会对应一个指针 id，在程序退出的时候所有指针 id 都必须已经被释放。
+#+end_quote
+
+- =bpf_verifier_stack_elem=:
+  分支时，和 DFS 一样，需要保存之前的状态，此处用的是 =bpf_verifier_stack_elem= 结构，是链表。
+- 指向 map 的指针有几个关联属性，一个是 =poison= 一个是 =unpriv= ，记录在 =bpf_insn_aux_data= 里的 =map_ptr_state= 位图中。
+  - =poison= :: 可以看一下 [[https://stackoverflow.com/questions/27801360/what-is-the-meaning-of-0xdead000000000000][what is the meaning of 0xdead000000000000?]]
+  - =unpriv= :: “unprivileged” 的缩写，有特权的指针似乎允许越界访问。
+- 指向 map 的 key 的指针关联属性则有 =poison= 以及 =seen= 。
+  - =seen= :: 看起来和 tail call 有关，用到它的唯一一个函数（ =record_func_key= ）只处理 =BPF_FUNC_tail_call= ：
+    #+begin_src c
+      if (func_id != BPF_FUNC_tail_call)
+        return 0;
+    #+end_src
+- 一些特殊调用，我们现在还没有处理：
+  #+begin_src c
+    static bool bpf_pseudo_call(const struct bpf_insn *insn)
+    {
+        return insn->code == (BPF_JMP | BPF_CALL) &&
+               insn->src_reg == BPF_PSEUDO_CALL;
+    }
+
+    static bool bpf_pseudo_kfunc_call(const struct bpf_insn *insn)
+    {
+        return insn->code == (BPF_JMP | BPF_CALL) &&
+               insn->src_reg == BPF_PSEUDO_KFUNC_CALL;
+    }
+  #+end_src
+
+* =bpf_check=
+
+放弃逐行看下来了，直奔主题 =bpf_check= ，在文件最后两百来行代码。
+
+顺着系统调用来：
+1. 系统调用 =bpf(2)= ， =cmd= 用 =BPF_PROG_LOAD= ，此时 =bpf_attr= 结构如下：
+   #+begin_src c
+     struct {    /* Used by BPF_PROG_LOAD */
+          __u32         prog_type;
+          __u32         insn_cnt;
+          __aligned_u64 insns;      /* 'const struct bpf_insn *' */
+          __aligned_u64 license;    /* 'const char *' */
+          __u32         log_level;  /* verbosity level of verifier */
+          __u32         log_size;   /* size of user buffer */
+          __aligned_u64 log_buf;    /* user supplied 'char *'
+                                       buffer */
+          __u32         kern_version;
+                                    /* checked when prog_type=kprobe
+                                       (since Linux 4.1) */
+      };
+   #+end_src
+2. 系统调用来到 =kernel/bpf/syscall.c= 的 =__sys_bpf= ，调用 =bpf_prog_load= 。
+3. 同文件的 =bpf_prog_load= 检查许可证、权限，在一些初始化之后调用 =bpf_check(&prog, attr, uattr)= ：
+   - =prog= :: 稍微初始化了的 =bpf_prog=
+   - =attr= :: 就是上面的，没有改动
+   - =uattr= :: 可能是用户相关
+
+** =bpf_verifier_ops=
+
+这是……用 C 语言手动实现的一个类似 C++ 的 virtual table……每一个类型对应一项。
++C++只是语法糖+
+
+** Verifier 初始化
+
+我之前一直在想要怎么把各种结构和对应的偏移位置对应起来……比如：
+
+#+begin_src c
+  struct some_struct {
+    u64 i;
+    u32 j;
+  };
+  struct some_struct s;
+  ,*(u64*)(&s) = 0; // allowed
+  ,*(u64*)(&(s.j)) = 0; // not allowed
+  ,*(u32*)(((u8*)&s)+4) = 0; // not allowed
+#+end_src
+
+在初始化时有读 BTF 信息，有可能 Rust 也可以？
+
+** 检查步骤
+
+大致和下面的 [[https://blog.csdn.net/hjkfcz/article/details/104916719][ebpf原理分析]]一致，不同的是：
+- =replace_map_fd_with_map_ptr= 不见了，大概是被整合到 =resolve_pseudo_ldimm64= 里了
+- 增加了 BTF 相关的检查
+- =check_cfg= 允许循环，只剩下了检查不可达代码的功能，同时禁止直接/间接递归
+- =do_check_*= 一系列函数是主要的检查
+  - =do_check_subprogs= ：检查每一个“全局函数”，会调用 =do_check_common=
+  - =do_check_main= ：检查入口函数，会调用 =do_check_common=
+  - =do_check_common= ：主体，会调用 =do_check=
+
+** =do_check_*= 系列函数
+
+*** =do_check_subprogs=
+
+这个似乎依赖用户提供的 BTF 信息？如果没有提供就不会检查，因为它需要知道每一个函数的 signature……
+
+*** =do_check_main=
+
+基本上就是直接调用 =do_check_common= 。
+
+*** =do_check_common=
+
+似乎在做一些函数调用入口的初始化。
+
+*** =do_check=
+
++这真的是我能看的东西吗+
+
+代码看起来的确很像解释器的结构，也比较清晰，但是不同指令分别的处理代码量太可怕了……
+
+另外， =BPF_CALL= 的用法大概可以汇总一下了：
+- 普通调用 helper 函数
+- =BPF_PSEUDO_CALL= 调用 eBPF 程序的其中一段
+- 还有一个 =BPF_PSEUDO_KFUNC_CALL= 直接调用内核函数，只在 JIT 启用时可用
+
+* 其它阅读
+
+- [[https://tinylab.org/ebpf-part2/][eBPF 程序装载、翻译与运行过程详解]]：装载与 relocation
+- [[https://fuweid.com/post/2022-ebpf-loader/][eBPF Loader]]： =libbpf= 以及些微 =BPF_PSEUDO_CALL= 描述
+- [[https://blog.csdn.net/hjkfcz/article/details/104916719][ebpf原理分析]]：有对 =bpf_check= 的介绍
 
