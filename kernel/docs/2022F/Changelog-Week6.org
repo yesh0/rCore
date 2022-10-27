@@ -251,3 +251,10 @@
   我们需要从提供给 helper 函数的参数中推测参数类型，从而得知某一个是函数指针。
   （这一点有可能需要在 =do_check= 之前，在验证函数递归之前就进行？）
 所以这方面的代码可以想象到是没法写得很“干净”的。而如果 verifier 没有设计好，可能到时加入新的 helper 的时候会加得很痛苦。
+
+* 题外话：Midori
+
+有一系列关于某个操作系统的 [[https://joeduffyblog.com/2015/11/03/blogging-about-midori/][Blogging about Midori]]。
+
+- 也许可以理解成所有程序都是 eBPF，但是从中间字节码上保证了安全。
+- 硬性 JIT / AOT。

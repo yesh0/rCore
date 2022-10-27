@@ -5,6 +5,7 @@
 - 第四周 :: 本文件
 - 第五周 :: [[./Changelog-Week5.org]]
 - 第六周 :: [[./Changelog-Week6.org]]
+- 第七周 :: [[./Changelog-Week7.org]]
 
 * 尝试把之前同学 eBPF 的代码跑起来
 从 [2022-10-02 Sun] 到 [2022-10-03 Mon]，还没成功。

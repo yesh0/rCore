@@ -1,0 +1,41 @@
+#+title: 更新日志（第七周）
+
+下面是第七周的更新记录。各周索引在 [[./Changelog.org][Changelog.org]]。
+
+* 似乎什么也没做
+
+把之前的零散在日志里的源码阅读笔记给总结了一下，独立出来了一个文档：
+
+https://yesh0.github.io/ebpf-analyzer/
+
+以后阅读的笔记大概就会更新在那边而不是放在日志里了……
+
+** 一个感觉
+
+毕竟 libbpf 也是 Linux 社区维护的（甚至就在一个仓库里），
+感觉上 Linux 那边是把内核加上 libbpf（甚至可以再加上 LLVM）作为整一个用户界面来看的。
+
+前段时间 Linux 把 libbpf 的 CO-RE 功能从用户空间弄进了内核里，
+所以我们想要兼容 Linux 的话要做的又多了……
+
+** Does it have to be eBPF?
+
+大家都是搞操作系统的说不定都已经听说过了：非常有趣的两个实验性操作系统：
+
+- Singularity: https://www.microsoft.com/en-us/research/project/singularity/
+- Midori: https://joeduffyblog.com/2015/11/03/blogging-about-midori/
+
+感觉上是解决用户限权的抽象层的思路不同：
+- 传统操作系统要保证用户无法访问内核数据，一般是在地址空间里借助硬件引入了“虚拟地址”这一层抽象。
+  这可以说是在指针之后引入了一层抽象。（当然也有历史原因。）
+- 这两个操作系统可以说是在指针之前引入了抽象：
+  用户提供的程序都是不含指针的，通过操作系统的 AOT 编译保证指针安全。
+
+要类比的话，就是所有程序都是 eBPF 程序，全都运行在内核态，
+不同的是基本不需要 verifier 且强制 JIT。
+（当然因为它们涉及了新的语言，加了另外的很多特性。）
+
+也有几个基于这种想法的开源的项目：
+- https://github.com/kwast-os/kwast
+- https://github.com/nebulet/nebulet
+- Lisp Machine 算吗（
