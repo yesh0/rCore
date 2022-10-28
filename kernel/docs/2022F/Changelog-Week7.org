@@ -10,6 +10,13 @@ https://yesh0.github.io/ebpf-analyzer/
 
 以后阅读的笔记大概就会更新在那边而不是放在日志里了……
 
+目前的大致内容：
+- Syscall =BPF(2)= 的接口文档补充
+- eBPF 指令集文档补充
+- 各种的网上资源以及源码对应的链接
+- 验证器源码阅读文档
+  - 目前还卡在代数操作的值跟踪上……
+
 ** 一个感觉
 
 毕竟 libbpf 也是 Linux 社区维护的（甚至就在一个仓库里），
@@ -39,3 +46,9 @@ https://yesh0.github.io/ebpf-analyzer/
 - https://github.com/kwast-os/kwast
 - https://github.com/nebulet/nebulet
 - Lisp Machine 算吗（
+
+同时因为上下文切换开销极大减小，eBPF 的这种“停机问题”可能也不太需要验证了？
+- 原先避免切换开销的已经可以放在用户自己程序里了，不停机也没问题。
+- 改变内核行为的或是 kProbes 之类的……
+  这种 root 级别的操作其实和 =modprobe= 是一个安全级别的吧。
+  请管理员担责吧，或者在用户态自己校验。
