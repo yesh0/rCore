@@ -32,9 +32,12 @@ section {
 
 ### 期中进展汇报
 
-- ebpf-analyzer: github.com/yesh0/ebpf-analyzer
+**ebpf-analyzer**
+[github.com/yesh0/ebpf-analyzer](https://github.com/yesh0/ebpf-analyzer)
   <!-- 项目地址，当然进度还差得远，最后会开源。 -->
-- eBPF Hitchhiking: yesh0.github.io/ebpf-analyzer
+
+**eBPF Hitchhiking**
+[yesh0.github.io/ebpf-analyzer](https://yesh0.github.io/ebpf-analyzer)
   <!--
   下面这个可以说是一点源码阅读的笔记或是文档吧，
   我尽量在我阅读 Linux 源码的过程中把整个脉络理一理，把现有的 eBPF 缺失的文档补全一下，记在这里。
