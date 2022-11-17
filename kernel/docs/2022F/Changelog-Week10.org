@@ -1,0 +1,183 @@
+#+title: 更新日志（第九周）
+
+跑、跑起来了？
+
+* 大概进展
+
+- 在之前的值的跟踪的基础上进行分支后的值预测。
+
+  例如 ~a = 1 or 2 or ... or 10~ ：
+  - ~if a <= 10 goto ...~ 一定会跳转
+  - ~if a > 20 goto ...~ 一定不会
+  - ~if a >= 5 goto ...~ 会进行分支
+    - 跳转分支： ~a = 5 or 6 or ... or 10~
+    - 另一分支： ~a = 1 or 2 or ... or 4~
+
+- 分支操作的实现：嵌套 =clone= ，需要注意把 =Rc= 替换为 =clone= 后的。
+
+- 解释器框架改动：
+
+  - 把值传参变为引用传参，有一大堆大概安全的 =unsafe= ……
+
+  - 加上分支管理部分的接口调用。
+
+- 基于解释器框架实现了验证器虚拟机。
+
+- 把代码用解释器在验证器虚拟机里执行，加上一个分支管理的上下文，就可以勉强跑起来了。
+
+* 演示
+
+下面有三个单一分支的例子（数值都是已知的，验证器可以知道它只有一条执行路径），
+一个多分支的例子（数值经过了乘除处理，变为对验证器不可知的，所以会有分支遍历）。
+
+分支遍历在现在的测试方案下不太行，和 =O0= =O2= 有关，在后面会说。
+
+- （目前）通过测试的：
+
+  #+begin_src c
+    ,int main() {
+      long long p = 0;
+      for (int i = 0; i != 100; ++i) {
+        if (i == 99) {
+          p += 1;
+        }
+        if (i == 100) {
+          ,*((char *) ((void *) p)) = 0;
+        }
+      }
+      return 0;
+    }
+  #+end_src
+
+- 不应通过测试的：
+
+  #+begin_src c
+    ,int main() {
+      long long p = 0;
+      for (int i = 0; i != 100; ++i) {
+        if (i == 99) {
+          ,*((char *) ((void *) p)) = 0;
+        }
+      }
+      return 0;
+    }
+  #+end_src
+
+- 最好不要让它通过测试的：（跑了一分钟左右，就算用内核线程也会对性能影响挺大的吧）
+
+  #+begin_src c
+    ,int main() {
+      long long p = 0;
+      for (int i = 0; i != 2000; ++i) {
+        for (int j = 0; j != 2000; ++j) {
+          if (i == 2000 && j == 2000) {
+            ,*((char *) ((void *) p)) = 0;
+          }
+        }
+      }
+      return 0;
+    }
+  #+end_src
+
+  Linux 对上面这段代码会报 =infinite loop= ，可能是栈上数值精度损失或者是合并分支的时候精度损失了？
+
+  #+begin_quote
+  15: (55) if r1 != 0xfa0 goto pc+8     ; R1_w=4000
+  16: (05) goto pc+0
+  17: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P1998 R10=fp0
+  18: (55) if r1 != 0xfa0 goto pc+5     ; R1_w=P1998
+  24: (05) goto pc+0
+  25: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P1998 R10=fp0
+  26: (07) r1 += 1                      ; R1_w=P1999
+  27: (63) *(u32 *)(r10 -24) = r1       ; R1_w=P1999 R10=fp0 fp-24_w=P1999
+  28: (05) goto pc-18
+  11: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P1999 R10=fp0
+  12: (15) if r1 == 0x7d0 goto pc+16    ; R1_w=P1999
+  13: (05) goto pc+0
+  14: (61) r1 = *(u32 *)(r10 -20)       ; R1_w=scalar(umax=4294967295,var_off=(0x0; 0xffffffff)) R10=fp0
+  15: (55) if r1 != 0xfa0 goto pc+8     ; R1_w=4000
+  16: (05) goto pc+0
+  17: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P1999 R10=fp0
+  18: (55) if r1 != 0xfa0 goto pc+5     ; R1_w=P1999
+  24: (05) goto pc+0
+  25: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P1999 R10=fp0
+  26: (07) r1 += 1                      ; R1_w=P2000
+  27: (63) *(u32 *)(r10 -24) = r1       ; R1_w=P2000 R10=fp0 fp-24_w=P2000
+  28: (05) goto pc-18
+  11: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P2000 R10=fp0
+  12: (15) if r1 == 0x7d0 goto pc+16    ; R1=P2000
+  29: (05) goto pc+0
+  30: (61) r1 = *(u32 *)(r10 -20)       ; R1_w=scalar(umax=4294967295,var_off=(0x0; 0xffffffff)) R10=fp0
+  31: (07) r1 += 1                      ; R1_w=scalar(umin=1,umax=4294967296,var_off=(0x0; 0x1ffffffff))
+  32: (63) *(u32 *)(r10 -20) = r1       ; R1_w=scalar(umin=1,umax=4294967296,var_off=(0x0; 0x1ffffffff)) R10=fp0 fp-24=mmmmmmmm
+  33: (05) goto pc-29
+  5: (61) r1 = *(u32 *)(r10 -20)        ; R1_w=scalar(umax=4294967295,var_off=(0x0; 0xffffffff)) R10=fp0
+  6: (15) if r1 == 0x7d0 goto pc+27     ; R1_w=scalar(umax=4294967295,var_off=(0x0; 0xffffffff))
+  7: (05) goto pc+0
+  8: (b7) r1 = 0                        ; R1_w=0
+  9: (63) *(u32 *)(r10 -24) = r1        ; R1_w=P0 R10=fp0 fp-24=mmmm0000
+  10: (05) goto pc+0
+  11: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P0 R10=fp0
+  12: (15) if r1 == 0x7d0 goto pc+16    ; R1_w=P0
+  13: (05) goto pc+0
+  14: (61) r1 = *(u32 *)(r10 -20)       ; R1_w=scalar(umax=4294967295,var_off=(0x0; 0xffffffff)) R10=fp0
+  15: (55) if r1 != 0xfa0 goto pc+8     ; R1_w=4000
+  16: (05) goto pc+0
+  17: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P0 R10=fp0
+  18: (55) if r1 != 0xfa0 goto pc+5     ; R1_w=P0
+  24: (05) goto pc+0
+  25: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P0 R10=fp0
+  26: (07) r1 += 1                      ; R1_w=P1
+  27: (63) *(u32 *)(r10 -24) = r1       ; R1_w=P1 R10=fp0 fp-24_w=P1
+  28: (05) goto pc-18
+  11: (61) r1 = *(u32 *)(r10 -24)       ; R1_w=P1 R10=fp0
+  12: (15) if r1 == 0x7d0 goto pc+16    ; R1_w=P1
+  13: (05) goto pc+0
+  infinite loop detected at insn 14
+  processed 26038 insns (limit 1000000) max_states_per_insn 4 total_states 674 peak_states 674 mark_read 1
+  #+end_quote
+
+- 一个简单的有分支的测试：
+
+  #+begin_src c
+    ,int main() {
+      long long p = 0;
+      unsigned int end = 1000;
+      // Create an unknown number
+      end = end / 7;
+      // Set an upper limit
+      if (0 <= end && end < 100) {
+        for (int i = 0; i < end; ++i) {
+          if (i == 100) {
+            ,*((char *) (void *) p) = 0;
+          }
+        }
+      }
+      return 0;
+    }
+  #+end_src
+
+  实际上因为我用的是 =O0= 编译（ =O1= 就已经会把常量计算全部 inline 了……），
+  生成的代码把变量全部放在栈上了。
+  现在的实现只跟踪了寄存器的值，所以这里暂时需要手动改一下汇编让寄存器写回到栈上。
+  不然的话，因为验证器只更新了寄存器的范围信息，它还是对栈上的值一头雾水。
+
+  （啊 Linux 实现也不通过那我就安心了。）
+
+* TODO 待做
+
+- 更多的测试（目前基本是加一个测试出几个 bug
+  - 目前测试流程的完善，现在的 =O0= 编译太多问题了；
+    =O2= 需要一些外部的未知因素，可能要在外界接口设计好之后才方便写。
+  - 可能可以把 Linux 那边的测例拿过来，但许可证需要考虑一下。
+  - 现在有几个 eBPF 相关的 fuzz 库，但都是给 Linux 写的，能改一下拿来最好。
+  - 与 Linux 的对照，如果 Linux 也报错的话那可能去实现的优先级不太高。
+- 构建对外的接口
+  - Helper……
+  - 外部指针以及指向的数据类型……
+  - 返回值
+- 基于权限的检查
+  - 目前的一些限制是写死的，例如指针之间不能进行算术操作等。
+  - Linux 会根据用户权限的不同放松一些限制。
+- 处理函数调用
+- 优化性能？

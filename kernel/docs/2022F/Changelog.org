@@ -8,6 +8,7 @@
 - 第七周 :: [[./Changelog-Week7.org]]
 - 第八周 :: [[./Changelog-Week8.md]]（用 [[https://marp.app/][Marp]] 查看最佳，用注释也写了一些内容。）
 - 第九周 :: [[./Changelog-Week9.org]]
+- 第十周 :: [[./Changelog-Week10.org]]
 
 * 尝试把之前同学 eBPF 的代码跑起来
 从 [2022-10-02 Sun] 到 [2022-10-03 Mon]，还没成功。
