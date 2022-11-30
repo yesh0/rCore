@@ -10,6 +10,7 @@
 - 第九周 :: [[./Changelog-Week9.org]]
 - 第十周 :: [[./Changelog-Week10.org]]
 - 第十一周 :: [[./Changelog-Week11.org]]
+- 第十二周 :: [[./Changelog-Week12.org]]
 
 * 尝试把之前同学 eBPF 的代码跑起来
 从 [2022-10-02 Sun] 到 [2022-10-03 Mon]，还没成功。
