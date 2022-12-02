@@ -1,0 +1,95 @@
+#+title: 更新日志（第十三周）
+
+这周毕设开题报告，没什么时间了。总之上周多做了点东西留到这周讲（
+
+* [[https://github.com/Alan-Jowett/bpf_conformance][=bpf_conformance=]]
+
+提供了挺多 eBPF 测例。可以用来测试解释器和验证器。
+最后 coverage 提了 5% 左右，找出了一大堆 bug。
+
+另外还有一点是它自带了一个汇编器，所以现在可以用它来写测例了。
+之前手动尝试了一下整个流程，现在还在搭自动化一点的能和 GitHub Actions 连起来的测试流程。
+
+（为什么不用 LLVM？因为 LLVM 生成的并不是最终代码，而是混了一些需要 libbpf 处理的内容进去。
+这些内容并不是合法的 eBPF 指令。）
+
+* 函数调用
+
+支持了 eBPF 自己的函数调用：
+
+#+begin_src c
+  int addition(int i, int j, int k, int l, int m);
+
+  SEC("prog")
+  int main() {
+    return addition(1, 2, 3, 4, 5);
+  }
+
+  SEC("prog")
+  int addition(int i, int j, int k, int l, int m) {
+    return i + j + k + l + m;
+  }
+#+end_src
+
+当然，这个直接用 LLVM 编译是没法直接得到可用的 eBPF 字节码的
+——里面还需要 libbpf 重定向的代码。（LLVM 编译汇编也一样。）
+所以我们才需要用 =bpf_conformance= 来直接写汇编。
+
+#+begin_src asm
+  # Copyright (c) Microsoft Corporation
+  # SPDX-License-Identifier: MIT
+  -- asm
+  # r1-r5 are passed to the callee
+  mov r0, 0
+  mov r1, 1
+  mov r2, 2
+  mov r3, 3
+  mov r4, 4
+  mov r5, 5
+  # r6-r9 are preserved
+  mov r6, 6
+  mov r7, 7
+  mov r8, 8
+  mov r9, 9
+  call local func1
+  # r0 contains the return value
+  # r0 should contain 1 + 2 + 3 + 4 + 5
+  jne r0, 15, failed
+  # r6 through r9 should be preserved
+  jne r6, 6, failed
+  jne r7, 7, failed
+  jne r8, 8, failed
+  jne r9, 9, failed
+  # Success
+  mov r0, 1
+  exit
+  failed:
+  mov r0, -1
+  exit
+  # Function sets r0 = r1 + r2 + r3 + r4 + r5
+  func1:
+  mov r0, 0
+  add r0, r1
+  add r0, r2
+  add r0, r3
+  add r0, r4
+  add r0, r5
+  mov r6, 0
+  mov r7, 0
+  mov r8, 0
+  mov r9, 0
+  exit
+  -- result
+  0x1
+#+end_src
+
+直接看演示吧。
+
+* 待做事项
+
+总之这部分应该算是把之前说的实现函数调用以及进行相对复杂一些的测例测试给实现了？
+测例复杂度可以说还不够，但是去找测例然后再整合到测试流程里其实还挺花时间的。
+（但现在想一想，好像大多时间还是花在修测试出来的 bug 上了……）
+
+接下来的时间希望能够用户接口整一整，针对 zCore 那边需要的功能实现一个简单的对接示例。
++最后再愉快地选一个许可证，写个花俏的 README。+
