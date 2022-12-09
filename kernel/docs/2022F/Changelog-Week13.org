@@ -8,10 +8,16 @@
 最后 coverage 提了 5% 左右，找出了一大堆 bug。
 
 另外还有一点是它自带了一个汇编器，所以现在可以用它来写测例了。
-之前手动尝试了一下整个流程，现在还在搭自动化一点的能和 GitHub Actions 连起来的测试流程。
+之前手动尝试了一下整个流程， +现在还在搭自动化一点的能和 GitHub Actions 连起来的测试流程。+
+现在把它作为一个汇编器整合到测试流程里了，写多了几个测例之后 coverage 终于到 90% 了。
+（但也就数字好看而已，并没有什么用。）
 
 （为什么不用 LLVM？因为 LLVM 生成的并不是最终代码，而是混了一些需要 libbpf 处理的内容进去。
 这些内容并不是合法的 eBPF 指令。）
+
+** 附加进度
+
+给 =bpf_conformance= 修了两个 bug（
 
 * 函数调用
 
@@ -84,6 +90,36 @@
 #+end_src
 
 直接看演示吧。
+
+* eBPF maps
+
+eBPF map 其实是 eBPF 里挺重要的部分，现在指针资源管理弄好了终于可以开始实现这一部分了。
+
+现在基本上把验证的部分弄好了，但是还在本地没有 commit。原因是还没有找到什么测试的方法：
+C 语言写的测例在 eBPF 里获取 map 的 imm64 指令需要 relocation，
+汇编的话 =bpf_conformance= 还不支持 map。
+
++当然可以手动敲指令，但我觉得不会有人真的这么干的，至少我不想。+
+
+** libbpf
+
+zCore 那边的 eBPF runtime 也有涉及到相关问题，就是现在 eBPF 生态基本上是离不开 libbpf 的。
+Clang 生成的文件需要 libbpf 处理，就连 Windows 那边的 ebpf-for-windows 也用到了 libbpf
+（看起来是调用了 libbpf 的内部 API）。
+
+现在 libbpf 的 API 大概是 ~加载 -> 内部处理 -> 交给 OS~ ，
+而获取字节码的 API =bpf_program__insns= 只是附带的，
+需要实际 =bpf_object__load= （把 eBPF 交给 OS 运行）才能返回我们想要的处理后的字节码。
+
++而我只是想跑一个 map 的测例而已……+
+
+** =bpf_conformance=
+
+总之，用 C 语言来写测例的话，libbpf 是绕不过去的坎，而且 libbpf 会让测试环境与 Linux 绑定：
+Windows / BSD 上没法跑测例。基本这条路行不通。
+
+之前谈到的 =bpf_conformance= 可以作为汇编器使用，但是它还没有支持 map 类型。
+现在有两个 open issues（[[https://github.com/Alan-Jowett/bpf_conformance/issues/59][#59]], [[https://github.com/Alan-Jowett/bpf_conformance/issues/68][#68]]），想要测试 map 的话可能要等或者是提 PR……
 
 * 待做事项
 
