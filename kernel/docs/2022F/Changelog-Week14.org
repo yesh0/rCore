@@ -42,3 +42,15 @@ Helper 函数验证这一部分，主要是 map 相关的 helper 函数会读取
 * Cranelift JIT
 
 还是之前说过的 Cranelift，稍微尝试了一下用它来写 JIT。
+
+用 Cranelift 的 API 的话，其实并不比写解释器难。
+
+（看演示吧。）
+
+现在还要做的是：
+1. 写完 JIT。
+2. 写一个函数之间链接的 =Module= 实现。（Cranelift 自带的实现是需要 =std= 的。）
+3. 做完之后，之前所有的测试应该都可以在这个 JIT 实现上跑，只是需要提供些运行时。
+
+之后应该可以直接在用户态展示 =no_std= 的 JIT 实现，但这样好像又没有回到操作系统上去，
+相当于是半个 ebpf-for-windows？
