@@ -69,6 +69,12 @@ eBPF 大概不用多加介绍了。eBPF 源与 Linux 内核，可以在操作系
 |:---------------------------------------:|:---------------------------------------:|
 | C 实现的用户态 eBPF 运行时              | Rust 实现的用户态 eBPF 运行时           |
 
+| [bpf_conformance](https://github.com/Alan-Jowett/bpf_conformance) | [dthaler/ebpf-docs][dt] |
+|:-----------------------------------------------------------------:|:-----------------------:|
+| eBPF 的测例库                                                     | eBPF 新版文档           |
+
+[dt]: https://github.com/dthaler/ebpf-docs/blob/update/isa/kernel.org/instruction-set.rst
+
 <style scoped>
 td, th {
   width: 50%;
