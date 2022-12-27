@@ -1,0 +1,31 @@
+#+title: 更新日志（第十六周）
+
+唯一的考试课程被我设 P/F 了，总之已经考完了。现在汇总一下一些工作以及之后的想法。
+
+总之想法还是把 eBPF 验证器 ebpf-analyzer 给继续写下去。
+之后等功能实现得差不多了会尝试把项目链接放到 ebpf.io 上去，至少让其它有需要的人能找得到。
+
+* Aya: libbpf 用户态替代
+
+找到了一个 libbpf 的用户态替代：[[https://github.com/aya-rs/aya][Aya]]。
++你说怎么等到学期末才找到呢……人家 1k star 了呢，之前真的一次都没搜出来？+
+
+但是，Aya 现在还只对接了 Linux 的系统调用，要用到我们这边来还有一定的问题。
+
+对此我提了一个 issue：
+[[https://github.com/aya-rs/aya/issues/473][Feature Request: Make aya::obj API public to allow usage with different runtime]]。
+总之是我接下来会尝试把 Aya 的与 Linux 系统调用无关的部分给独立成为一个 =aya-obj= 的 crate，
+独立出来之后就可以用在我们的系统或者是各种测例中了。
+（我的想法是尽量把 =aya-obj= 给弄成 =no_std= 的，但是稍微看了一下代码，看起来有点难。总之之后再说吧。）
+
+这部分对于我们这学期的同学其实可能没什么用了，之后弄 eBPF 方向的同学可能可以考虑看看 =aya-obj= （如果我整出来了的话）。
+
+* Relocation, again
+
+发现了之前漏掉的内核需要进行的另外一种“重定向”：
+Linux 里 eBPF 使用的 ~struct __sk_buff~ 和内核里实际的 ~struct sk_buff~ 是不同的。
+例如， ~struct __sk_buff~ 里的指针是 32 位的，这当然不对啦。
+实际上，内核会把对 =__sk_buff= 的访问的偏移量、读取的数据大小都进行改动，
+使其与实际的 ~struct sk_buff~ 符合。
+
+有兴趣的话可以看看这篇文章 [[https://medium.com/@c0ngwang/understanding-struct-sk-buff-730cf847a722][Understanding struct =__sk_buff= - Cong Wang]]。
