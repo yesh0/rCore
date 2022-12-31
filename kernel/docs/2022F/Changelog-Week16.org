@@ -16,7 +16,11 @@
 [[https://github.com/aya-rs/aya/issues/473][Feature Request: Make aya::obj API public to allow usage with different runtime]]。
 总之是我接下来会尝试把 Aya 的与 Linux 系统调用无关的部分给独立成为一个 =aya-obj= 的 crate，
 独立出来之后就可以用在我们的系统或者是各种测例中了。
-（我的想法是尽量把 =aya-obj= 给弄成 =no_std= 的，但是稍微看了一下代码，看起来有点难。总之之后再说吧。）
++（我的想法是尽量把 =aya-obj= 给弄成 =no_std= 的，但是稍微看了一下代码，看起来有点难。总之之后再说吧。）+
+现在已经提了一个 PR（[[https://github.com/aya-rs/aya/pull/475][#475]]），还在等进一步的 review，看起来比较有希望。
+=no_std= 的话，现在理论上是可以的。但是为了确保依赖上没出什么问题
+（比如 Cranelift 就是标着 =no_std= 但是却不能在 =no_std= 下编译），
+还是之后在 =no_std= 环境里实际用一下会比较好。
 
 这部分对于我们这学期的同学其实可能没什么用了，之后弄 eBPF 方向的同学可能可以考虑看看 =aya-obj= （如果我整出来了的话）。
 

@@ -306,4 +306,23 @@ Linux 下的从编译到用户 API 到内核里面的验证和 JIT 处理，这�
 
 ---
 
+### 额外内容
+
+这部分是期末展示完之后进行的。详细的请见 [./Changelog-Week16.org](./Changelog-Week16.org)
+
+上面提到了我们离实现一个完整的 eBPF 系统还差一个 libbpf 替代。
+正好有人用 Rust 实现了一个独立于 libbpf 的加载库：[Aya](https://github.com/aya-rs/aya/)。
+
+它其实现在还是主要按 Linux 来的：它需要用到 Linux 的系统调用，而我们的 rCore-Tutorial,
+rCore 或者 zCore 都还没办法做到与 Linux 的完全兼容（也不敢说能兼容 Rust std，
+它不是 `no_std` 的）。所以我们没办法直接使用 Aya。
+
+针对这一点我提了一个 issue（[#473](https://github.com/aya-rs/aya/issues/473)）
+以及一个 PR（[#475](https://github.com/aya-rs/aya/pull/475)），
+希望可以把与 Linux 无关的那部分代码独立出一个 `no_std` 的 crate。
+
+现在这个 PR 还在等 review。如果最终能弄好的话，之后的同学应该可以轻松一点。
+
+---
+
 ### 谢谢大家！
