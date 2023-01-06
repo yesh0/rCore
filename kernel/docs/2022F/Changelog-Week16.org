@@ -24,7 +24,12 @@
 
 这部分对于我们这学期的同学其实可能没什么用了，之后弄 eBPF 方向的同学可能可以考虑看看 =aya-obj= （如果我整出来了的话）。
 
+现在 PR 已经合并了，可以在 =Cargo.toml= 里引用 git 仓库使用。
+=ebpf-analyzer= 那边也用 =aya_obj= 加了一个测例。
+
 * Relocation, again
+
+** 数据结构重定向
 
 发现了之前漏掉的内核需要进行的另外一种“重定向”：
 Linux 里 eBPF 使用的 ~struct __sk_buff~ 和内核里实际的 ~struct sk_buff~ 是不同的。
@@ -33,3 +38,15 @@ Linux 里 eBPF 使用的 ~struct __sk_buff~ 和内核里实际的 ~struct sk_buf
 使其与实际的 ~struct sk_buff~ 符合。
 
 有兴趣的话可以看看这篇文章 [[https://medium.com/@c0ngwang/understanding-struct-sk-buff-730cf847a722][Understanding struct =__sk_buff= - Cong Wang]]。
+
+** 全局数据重定向
+
+我们知道一般程序有 =.data=, =.rodata= 以及 =.bss= 这些段。
+操作系统课程里其实也涉及到了相关的内容。eBPF 程序里要实现这样的功能需要内核以及用户侧的配合。
+
+- 内核侧：根据特殊指令，将 map fd 变为 =.data= 等的指针。
+- 用户侧：将对 =.data= 等段的访问指令变为内核能够识别的特殊指令。
+
+总的来说，这样子的 eBPF 其实是把一个 map 的值的对应指针当成 =.data= 这些段的数据指针来用了。
+
+现在文档仓库更新了相关的内容， =ebpf-analyzer= 也支持了这样的使用方法。

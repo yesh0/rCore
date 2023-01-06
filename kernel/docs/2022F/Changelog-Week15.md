@@ -321,7 +321,16 @@ rCore 或者 zCore 都还没办法做到与 Linux 的完全兼容（也不敢说
 以及一个 PR（[#475](https://github.com/aya-rs/aya/pull/475)），
 希望可以把与 Linux 无关的那部分代码独立出一个 `no_std` 的 crate。
 
-现在这个 PR 还在等 review。如果最终能弄好的话，之后的同学应该可以轻松一点。
+<del>现在这个 PR 还在等 review。如果最终能弄好的话，之后的同学应该可以轻松一点。</del>
+更新：现在已经通过了，但是什么时候发到 `crates.io` 上可能还得看 Aya 什么时候跳版本号。
+现在要使用的话大概是这样：
+
+```toml
+[dependencies]
+aya-obj = { git = "https://github.com/aya-rs/aya", features = ["no_std"] }
+```
+
+`ebpf-analyzer` 也更新了一个使用 `aya_obj` 的测例，测出了两个大 bug，加了对应的新功能。
 
 ---
 
